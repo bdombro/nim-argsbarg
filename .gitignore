@@ -1,0 +1,25 @@
+# Nim default output for `src/argsbarg.nim` (keep `src/argsbarg/` package dir tracked).
+/src/argsbarg
+!/src/argsbarg/
+!/src/argsbarg/**
+/src/argsbarg.exe
+/src/argsbarg.out
+
+/examples/nim_file
+/examples/nim_file.exe
+/examples/nim_file.out
+
+/examples/nim_minimal
+/examples/nim_minimal.exe
+/examples/nim_minimal.out
+
+/tests/t_parse
+/tests/t_parse.exe
+/tests/t_parse.out
+
+/tests/t_completion
+/tests/t_completion.exe
+/tests/t_completion.out
+
+# Nim incremental / cache
+nimcache/

@@ -1,0 +1,28 @@
+---
+description: Nim coding standards for example apps (examples/*.nim)
+globs: "examples/*.nim"
+alwaysApply: true
+---
+
+# Nim code standards
+
+- Except argsbarg, keep the entire example in that one `.nim` file; do not add companion `.nim` files for the same app to `import` or `include`
+- Commands that shell out to non-bundled binaries should check PATH, print install hints, and exit non-zero when required commands are missing.
+- **Multi-word identifiers:** order general → specific (head-first: main concept, then qualifier); typically topic → optional subtype/format → measured attribute → limit/qualifier (e.g. `statStatusOk`, not `okStatStatus`).
+- **Field names:** minimal tokens within the owning type; no repeated type/module/domain prefixes unless required for disambiguation.
+- **Module-scope (top-level) declarations** (except imports) must:
+  - have a doc comment above the declaration;
+  - be sorted alphabetically by identifier (consts, object types, fields inside exported objects, vars, then procs);
+  - for procs: callee before caller when required by the compiler; otherwise alphabetical;
+- **Functions** must have a doc comment and a blank line after the function.
+- **Function shape:** entry-point and orchestration procs read top-down as a short sequence of named steps; keep the happy path obvious; move mechanics into helpers with intent-revealing names.
+- **Helper placement:**
+  - prefer nested helpers only for tiny logic tightly coupled to one block;
+  - promote helpers to module scope when nesting makes the caller hard to scan, even with one call site;
+  - shared by ≥2 call sites → smallest common ancestor (often a private proc at module scope);
+  - must be visible to tests, callbacks, or exports → keep at the level visibility requires;
+  - recursion between helpers → shared scope as the language requires.
+- **Parameter shape:** if a proc takes more than four primitive or config parameters, prefer an options object; if the same cluster of values passes through multiple layers, define a named type for it.
+- **Branching:** materially different pipelines → separate helpers, not interleaved; repeated status literals and sentinels → centralized constants (or enums when suitable).
+- Assume Unix arch and POSIX features are available.
+- Line max-width **100** characters unless the line is a code block or a URL.
