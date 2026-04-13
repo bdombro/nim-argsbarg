@@ -4,7 +4,7 @@ nim := "nim"
 src_path := "-p:src"
 
 # List available recipes (default).
-default:
+_:
     @just --list
 
 # Compile the library and both example apps.
@@ -52,10 +52,20 @@ release-check: build test
     ./examples/nim_minimal completions-zsh --print > /tmp/argsbarg_release_minimal.zsh
     zsh -n /tmp/argsbarg_release_minimal.zsh
 
-# Bump minor SemVer in argsbarg.nimble, release-check, commit, tag vX.Y.Z, push (Nimble uses tags).
-release-minor:
+# Bump SemVer in argsbarg.nimble, release-check, commit, tag vX.Y.Z, push. Arg: major | minor | patch.
+release bump:
     #!/usr/bin/env bash
     set -euo pipefail
+    bump="{{bump}}"
+    case "$bump" in
+      major|minor|patch) ;;
+      *)
+        echo "error: bump must be major, minor, or patch (got: ${bump})" >&2
+        echo "usage: just release major|minor|patch" >&2
+        exit 1
+        ;;
+    esac
+    export BUMP_KIND="$bump"
     root="$(git rev-parse --show-toplevel)"
     cd "$root"
     if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
@@ -63,6 +73,7 @@ release-minor:
       exit 1
     fi
     new_ver="$(python3 - <<'PY'
+    import os
     import re
     from pathlib import Path
     path = Path("argsbarg.nimble")
@@ -70,8 +81,16 @@ release-minor:
     m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', text, re.M)
     if not m:
         raise SystemExit("error: could not parse version from argsbarg.nimble")
-    major, minor, _patch = map(int, m.groups())
-    new_ver = f"{major}.{minor + 1}.0"
+    major, minor, patch = map(int, m.groups())
+    kind = os.environ["BUMP_KIND"]
+    if kind == "major":
+        new_ver = f"{major + 1}.0.0"
+    elif kind == "minor":
+        new_ver = f"{major}.{minor + 1}.0"
+    elif kind == "patch":
+        new_ver = f"{major}.{minor}.{patch + 1}"
+    else:
+        raise SystemExit(f"error: invalid BUMP_KIND {kind!r}")
     path.write_text(
         re.sub(
             r'^version = "\d+\.\d+\.\d+"',
