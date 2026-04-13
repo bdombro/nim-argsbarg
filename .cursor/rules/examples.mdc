@@ -6,6 +6,7 @@ alwaysApply: true
 
 # Nim code standards
 
+- ``CliCommand.handler`` must be a named proc, not an inline proc literal, and must implement the command directly rather than just forwarding to another proc.
 - Except argsbarg, keep the entire example in that one `.nim` file; do not add companion `.nim` files for the same app to `import` or `include`
 - Commands that shell out to non-bundled binaries should check PATH, print install hints, and exit non-zero when required commands are missing.
 - **Multi-word identifiers:** order general → specific (head-first: main concept, then qualifier); typically topic → optional subtype/format → measured attribute → limit/qualifier (e.g. `statStatusOk`, not `okStatStatus`).

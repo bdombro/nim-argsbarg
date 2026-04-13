@@ -4,7 +4,18 @@ import argsbarg
 ## Default greeting name when `--name` is omitted.
 const helloNameDefault = "world"
 
-proc helloHandler(ctx: CliContext)
+## Prints a greeting using the optional `--name` value.
+proc helloHandler(ctx: CliContext) =
+  let nameOpt = ctx.optString("name")
+  let name =
+    if nameOpt.isSome:
+      nameOpt.get
+    else:
+      helloNameDefault
+  if ctx.optFlag("verbose"):
+    echo "verbose mode enabled"
+  echo styleGreen("hello"), " ", name
+  
 
 ## Schema for the `nim_minimal` example (single `hello` command).
 let appSchema = CliSchema(
@@ -40,18 +51,6 @@ let appSchema = CliSchema(
   name: "nim_minimal",
   options: @[],
 )
-
-## Prints a greeting using the optional `--name` value.
-proc helloHandler(ctx: CliContext) =
-  let nameOpt = ctx.optString("name")
-  let name =
-    if nameOpt.isSome:
-      nameOpt.get
-    else:
-      helloNameDefault
-  if ctx.optFlag("verbose"):
-    echo "verbose mode enabled"
-  echo styleGreen("hello"), " ", name
 
 ## Entry point when this file is compiled as the main module.
 when isMainModule:

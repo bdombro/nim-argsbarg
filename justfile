@@ -109,3 +109,6 @@ release bump:
     git tag -a "v${new_ver}" -m "Release v${new_ver}."
     git push origin HEAD
     git push origin "refs/tags/v${new_ver}"
+    
+    # Clear local caches (to ensure local apps pick up the new version)
+    rm -rf ~/.nimble/pkgs2/argsbarg-* ~/.nimble/pkgcache/githubcom_bdombronimargsbarg*
