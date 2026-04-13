@@ -38,30 +38,33 @@ type CliContext* = object
 type CliHandler* = proc(ctx: CliContext) {.nimcall.}
 
 ## Declares a single option or positional argument on a command or the application root.
+## Omitted `isPositional` / `isRepeated` default to false; `shortName` defaults to `CliNoShortName`.
 type CliOption* = object
   description*: string
-  isPositional*: bool
-  isRepeated*: bool
+  isPositional*: bool = false
+  isRepeated*: bool = false
   kind*: CliValueKind
-  shortName*: char
+  shortName*: char = CliNoShortName
   name*: string
 
 ## Declares a command or nested subcommand and optional handler.
+## Omitted `arguments`, `commands`, and `options` default to empty sequences.
 type CliCommand* = object
-  arguments*: seq[CliOption]
-  commands*: seq[CliCommand]
+  arguments*: seq[CliOption] = @[]
+  commands*: seq[CliCommand] = @[]
   description*: string
   handler*: Option[CliHandler]
   name*: string
-  options*: seq[CliOption]
+  options*: seq[CliOption] = @[]
 
 ## Declares the full CLI surface for an application.
+## Omitted `options` defaults to an empty sequence; `defaultCommand` defaults to `none(string)`.
 type CliSchema* = object
   commands*: seq[CliCommand]
-  defaultCommand*: Option[string]
+  defaultCommand*: Option[string] = none(string)
   description*: string
   name*: string
-  options*: seq[CliOption]
+  options*: seq[CliOption] = @[]
 
 ## Structured parse outcome including help and error branches.
 type CliParseResult* = object

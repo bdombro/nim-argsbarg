@@ -66,34 +66,26 @@ proc writeHandler(ctx: CliContext) =
 let appSchema = CliSchema(
   commands: @[
     CliCommand(
-      arguments: @[],
-      commands: @[],
       description: "Remove files.",
       handler: some(rmHandler),
       name: "rm",
-      options: @[],
     ),
     CliCommand(
       arguments: @[
         CliOption(
           description: "File to read.",
           isPositional: true,
-          isRepeated: false,
           kind: cliValueString,
           name: "path",
         ),
       ],
-      commands: @[],
       description: "Print file contents.",
       handler: some(readHandler),
       name: "read",
-      options: @[],
     ),
     CliCommand(
-      arguments: @[],
       commands: @[
         CliCommand(
-          arguments: @[],
           commands: @[
             CliCommand(
               arguments: @[
@@ -105,15 +97,12 @@ let appSchema = CliSchema(
                   name: "files",
                 ),
               ],
-              commands: @[],
               description: "Look up owner details for the selected files.",
               handler: some(statOwnerLookupHandler),
               name: "lookup",
               options: @[
                 CliOption(
                   description: "Filter by an explicit user name.",
-                  isPositional: false,
-                  isRepeated: false,
                   kind: cliValueString,
                   name: "user-name",
                 ),
@@ -126,8 +115,6 @@ let appSchema = CliSchema(
           options: @[
             CliOption(
               description: "Resolve the owner id numerically.",
-              isPositional: false,
-              isRepeated: false,
               kind: cliValueNumber,
               name: "numeric",
             ),
@@ -140,8 +127,6 @@ let appSchema = CliSchema(
       options: @[
         CliOption(
           description: "Choose the output format (color,json).",
-          isPositional: false,
-          isRepeated: false,
           kind: cliValueString,
           name: "format",
         ),
@@ -157,45 +142,36 @@ let appSchema = CliSchema(
           name: "paths",
         ),
       ],
-      commands: @[],
       description: "Create or update file timestamps.",
       handler: some(touchHandler),
       name: "touch",
-      options: @[],
     ),
     CliCommand(
       arguments: @[
         CliOption(
           description: "File to write.",
           isPositional: true,
-          isRepeated: false,
           kind: cliValueString,
           name: "path",
         ),
       ],
-      commands: @[],
       description: "Write content to a file.",
       handler: some(writeHandler),
       name: "write",
       options: @[
         CliOption(
           description: "Content to write.",
-          isPositional: false,
-          isRepeated: false,
           kind: cliValueString,
           name: "content",
         ),
       ],
     ),
   ],
-  defaultCommand: none(string),
   description: "Small file utilities from the command line.",
   name: "nim_file",
   options: @[
     CliOption(
       description: "Select the output color mode example value.",
-      isPositional: false,
-      isRepeated: false,
       kind: cliValueString,
       name: "color-mode",
     ),

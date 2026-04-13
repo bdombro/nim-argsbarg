@@ -21,24 +21,18 @@ proc helloHandler(ctx: CliContext) =
 let appSchema = CliSchema(
   commands: @[
     CliCommand(
-      arguments: @[],
-      commands: @[],
       description: "Print a greeting.",
       handler: some(helloHandler),
       name: "hello",
       options: @[
         CliOption(
           description: "Name to greet.",
-          isPositional: false,
-          isRepeated: false,
           kind: cliValueString,
           name: "name",
           shortName: 'n',
         ),
         CliOption(
           description: "Print extra logging before the greeting.",
-          isPositional: false,
-          isRepeated: false,
           kind: cliValueNone,
           name: "verbose",
           shortName: 'v',
@@ -46,10 +40,8 @@ let appSchema = CliSchema(
       ],
     ),
   ],
-  defaultCommand: none(string),
   description: "Minimal argsbarg example.",
   name: "nim_minimal",
-  options: @[],
 )
 
 ## Entry point when this file is compiled as the main module.
