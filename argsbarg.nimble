@@ -1,4 +1,4 @@
-version = "0.3.0"
+version = "0.3.1"
 author = "Brian Dombroski"
 description = "argsbarg: schema based cli framework with zsh completions"
 license = "MIT"
