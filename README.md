@@ -156,13 +156,6 @@ The completion script is derived from the same merged schema used for parsing an
 | `just smoke-minimal` | Build plus focused checks for `nim_minimal` |
 | `just release-check` | `build`, `tests`, and zsh syntax checks on generated scripts |
 
-## Publishing to the Nim package index
-
-1. Tag a semver release that matches `version` in `argsbarg.nimble`.
-2. Ensure `just release-check` is clean.
-3. Follow the official Nimble / packages index instructions to register the package URL and version.
-
-The package name, import path, and primary module are all `argsbarg`.
 
 ## License
 
