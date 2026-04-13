@@ -51,3 +51,42 @@ release-check: build test
     zsh -n /tmp/argsbarg_release_file.zsh
     ./examples/nim_minimal completions-zsh --print > /tmp/argsbarg_release_minimal.zsh
     zsh -n /tmp/argsbarg_release_minimal.zsh
+
+# Bump minor SemVer in argsbarg.nimble, release-check, commit, tag vX.Y.Z, push (Nimble uses tags).
+release-minor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="$(git rev-parse --show-toplevel)"
+    cd "$root"
+    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+      echo "error: tracked files have uncommitted changes; commit or stash first." >&2
+      exit 1
+    fi
+    new_ver="$(python3 - <<'PY'
+    import re
+    from pathlib import Path
+    path = Path("argsbarg.nimble")
+    text = path.read_text()
+    m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', text, re.M)
+    if not m:
+        raise SystemExit("error: could not parse version from argsbarg.nimble")
+    major, minor, _patch = map(int, m.groups())
+    new_ver = f"{major}.{minor + 1}.0"
+    path.write_text(
+        re.sub(
+            r'^version = "\d+\.\d+\.\d+"',
+            f'version = "{new_ver}"',
+            text,
+            count=1,
+            flags=re.M,
+        )
+    )
+    print(new_ver)
+    PY
+    )"
+    just release-check
+    git add argsbarg.nimble
+    git commit -m "Bump version to ${new_ver}."
+    git tag -a "v${new_ver}" -m "Release v${new_ver}."
+    git push origin HEAD
+    git push origin "refs/tags/v${new_ver}"
