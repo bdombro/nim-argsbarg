@@ -31,6 +31,8 @@ proc identToken(s: string): string =
 
 
 ## Emits the `_nac_consume_long` helper that classifies `--flag` argv tokens per scope.
+## Prints a single digit to stdout (0 unknown, 1 one word, 2 option plus separate value word)
+## for capture by `_nac_simulate`; exits zero after printing.
 proc emitConsumeLong(ident: string; scopes: seq[ScopeRec]): string =
   var lines: seq[string] = @[]
   lines.add "_" & ident & "_nac_consume_long() {"
@@ -40,27 +42,29 @@ proc emitConsumeLong(ident: string; scopes: seq[ScopeRec]): string =
     lines.add "    " & $i & ")"
     lines.add "      case $w in"
     lines.add "        " & CliHelpLongFlag & "|" & CliHelpLongFlag &
-      "=*|" & CliHelpShortFlag & ") return 1 ;;"
+      "=*|" & CliHelpShortFlag & ") echo 1 ;;"
     for o in sc.opts:
       if o.isPositional:
         continue
       let base = "--" & o.name
       case o.kind
       of cliValueNone:
-        lines.add "        " & base & "|" & base & "=*) return 1 ;;"
+        lines.add "        " & base & "|" & base & "=*) echo 1 ;;"
       of cliValueNumber, cliValueString:
-        lines.add "        " & base & "=*) return 1 ;;"
-        lines.add "        " & base & ") return 2 ;;"
-    lines.add "        *) return 0 ;;"
+        lines.add "        " & base & "=*) echo 1 ;;"
+        lines.add "        " & base & ") echo 2 ;;"
+    lines.add "        *) echo 0 ;;"
     lines.add "      esac"
     lines.add "      ;;"
-  lines.add "    *) return 0 ;;"
+  lines.add "    *) echo 0 ;;"
   lines.add "  esac"
   lines.add "}"
   result = lines.join("\n") & "\n"
 
 
 ## Emits `_nac_consume_short` which classifies short option argv tokens per scope.
+## Prints a single digit to stdout (0 unknown, 1 one word, 2 valued flag needs next word)
+## for capture by `_nac_simulate`; may `return` immediately after printing.
 proc emitConsumeShort(ident: string; scopes: seq[ScopeRec]): string =
   var lines: seq[string] = @[]
   lines.add "_" & ident & "_nac_consume_short() {"
@@ -83,19 +87,19 @@ proc emitConsumeShort(ident: string; scopes: seq[ScopeRec]): string =
         boolChars.add $o.shortName
       else:
         lines.add "          " & $o.shortName & ")"
-        lines.add "            if [[ $saw -ne 0 || -n $rest ]]; then return 0; fi"
-        lines.add "            return 2 ;;"
+        lines.add "            if [[ $saw -ne 0 || -n $rest ]]; then echo 0; return; fi"
+        lines.add "            echo 2; return ;;"
     if boolChars.len > 0:
       lines.add "          " & boolChars.join("|") & ") ;;"
-    lines.add "          *) return 0 ;;"
+    lines.add "          *) echo 0; return ;;"
     lines.add "        esac"
     lines.add "        saw=1"
     lines.add "      done"
-    lines.add "      return 1"
+    lines.add "      echo 1"
     lines.add "      ;;"
-  lines.add "    *) return 0 ;;"
+  lines.add "    *) echo 0 ;;"
   lines.add "  esac"
-  lines.add "  return 0"
+  lines.add "  echo 0"
   lines.add "}"
   result = lines.join("\n") & "\n"
 

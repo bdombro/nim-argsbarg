@@ -73,3 +73,44 @@ suite "completionZshScript":
     writeFile(path, script)
     let (output, exitCode) = execCmdEx("zsh -n " & path.quoteShell)
     check exitCode == 0 and output.strip.len == 0
+
+  test "consume helpers echo step counts for simulate capture":
+    proc leaf(ctx: CliContext) = discard
+    let s = CliSchema(
+      commands: @[
+        CliCommand(
+          arguments: @[],
+          commands: @[],
+          description: "Leaf.",
+          handler: some(leaf),
+          name: "run",
+          options: @[
+            CliOption(
+              description: "Verbose.",
+              isPositional: false,
+              isRepeated: false,
+              kind: cliValueNone,
+              name: "verbose",
+              shortName: 'v',
+            ),
+            CliOption(
+              description: "Format.",
+              isPositional: false,
+              isRepeated: false,
+              kind: cliValueString,
+              name: "format",
+              shortName: 'f',
+            ),
+          ],
+        ),
+      ],
+      defaultCommand: none(string),
+      description: "Echo test app.",
+      name: "tapp_echo",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let script = completionZshScript(m)
+    check script.contains(CliHelpLongFlag & "|" & CliHelpLongFlag & "=*|" & CliHelpShortFlag & ") echo 1 ;;")
+    check script.contains("echo 2; return ;;")
+    check not script.contains(CliHelpLongFlag & "|" & CliHelpLongFlag & "=*|" & CliHelpShortFlag & ") return 1 ;;")

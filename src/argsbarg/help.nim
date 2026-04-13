@@ -89,7 +89,7 @@ proc cliHelpRender*(schema: CliSchema; helpPath: seq[string]): string =
     buf.add "\n"
     for ln in linesForSubcommands(schema.commands, "Commands"):
       buf.add ln
-    return buf
+    return "\n" & buf & "\n"
 
   var cmds = schema.commands
   var node: CliCommand
@@ -117,7 +117,7 @@ proc cliHelpRender*(schema: CliSchema; helpPath: seq[string]): string =
     buf.add "\n"
   for ln in linesForSubcommands(node.commands, "Subcommands"):
     buf.add ln
-  buf
+  "\n" & buf & "\n"
 
 
 ## Builds a string of `n` ASCII spaces for column padding in help output.
