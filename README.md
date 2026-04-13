@@ -34,6 +34,15 @@ let schema = CliSchema(
           kind: cliValueString,
           isPositional: false,
           isRepeated: false,
+          shortName: 'n',
+        ),
+        CliOption(
+          name: "verbose",
+          description: "Enable extra logging.",
+          kind: cliValueNone,
+          isPositional: false,
+          isRepeated: false,
+          shortName: 'v',
         ),
       ],
       arguments: @[],
@@ -92,7 +101,8 @@ Nested routing commands never use `defaultCommand`: if a node still has subcomma
 ### Options and positionals
 
 - Long options use `--name` and, for valued kinds, `--name value` or `--name=value`.
-- Short flags other than `-h` are rejected with a clear error (matching the current parser).
+- Short aliases are opt-in on `CliOption.shortName`, so `-n` can mirror `--name` and `-v` can mirror a presence flag like `--verbose`.
+- Short valued options use `-n value`, and bundled boolean shorts such as `-abc` are supported when every alias in the bundle is presence-only.
 - Positional arguments are `CliOption` values with `isPositional: true`, usually attached to leaf commands.
 
 ### Type helpers on `CliContext`

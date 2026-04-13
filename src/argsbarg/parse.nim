@@ -23,6 +23,14 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
     none(CliOption)
 
 
+  ## Looks up an option definition by short alias within `defs`.
+  proc findOptionDefByShort(defs: seq[CliOption]; shortName: char): Option[CliOption] =
+    for o in defs:
+      if o.shortName == shortName:
+        return some(o)
+    none(CliOption)
+
+
   ## Recognizes `-h` / `--help` tokens for help branch handling.
   proc isHelpTok(tok: string): bool {.inline.} =
     tok == CliHelpShortFlag or tok == CliHelpLongFlag
@@ -30,6 +38,58 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
 
   ## Consumes long options at the current argv index until a non-flag token.
   proc consumeOptions(defs: seq[CliOption]): Option[string] =
+    proc consumeLongOption(tok: string): Option[string] =
+      var optName: string
+      var optVal: string
+      let eq = tok.find('=')
+      if eq >= 0:
+        optName = tok[2 ..< eq]
+        optVal = tok[eq + 1 .. ^1]
+      else:
+        optName = tok[2 .. ^1]
+        let def = findOptionDef(defs, optName)
+        if def.isNone:
+          return some("Unknown option: --" & optName)
+        if def.get.kind == cliValueNone:
+          optVal = "1"
+        else:
+          inc i
+          if i >= argv.len:
+            return some("Missing value for option: --" & optName)
+          optVal = argv[i]
+      let def2 = findOptionDef(defs, optName)
+      if def2.isNone:
+        return some("Unknown option: --" & optName)
+      opts[optName] = optVal
+      inc i
+      none(string)
+
+
+    proc consumeShortOption(tok: string): Option[string] =
+      if tok.len < 2:
+        return some("Unexpected option token: " & tok)
+      let shorts = tok[1 .. ^1]
+      var j = 0
+      while j < shorts.len:
+        let shortName = shorts[j]
+        let def = findOptionDefByShort(defs, shortName)
+        if def.isNone:
+          return some("Unknown option: -" & $shortName)
+        if def.get.kind == cliValueNone:
+          opts[def.get.name] = "1"
+          inc j
+          continue
+        if shorts.len != 1:
+          return some("Short option -" & $shortName & " requires a value and cannot be bundled: " & tok)
+        inc i
+        if i >= argv.len:
+          return some("Missing value for option: -" & $shortName)
+        opts[def.get.name] = argv[i]
+        inc i
+        return none(string)
+      inc i
+      none(string)
+
     while i < argv.len:
       let tok = argv[i]
       if isHelpTok(tok):
@@ -37,31 +97,13 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
       if not tok.startsWith("-"):
         break
       if tok.startsWith("--"):
-        var optName: string
-        var optVal: string
-        let eq = tok.find('=')
-        if eq >= 0:
-          optName = tok[2 ..< eq]
-          optVal = tok[eq + 1 .. ^1]
-        else:
-          optName = tok[2 .. ^1]
-          let def = findOptionDef(defs, optName)
-          if def.isNone:
-            return some("Unknown option: --" & optName)
-          if def.get.kind == cliValueNone:
-            optVal = "1"
-          else:
-            inc i
-            if i >= argv.len:
-              return some("Missing value for option: --" & optName)
-            optVal = argv[i]
-        let def2 = findOptionDef(defs, optName)
-        if def2.isNone:
-          return some("Unknown option: --" & optName)
-        opts[optName] = optVal
-        inc i
+        let err = consumeLongOption(tok)
+        if err.isSome:
+          return err
       else:
-        return some("Short options other than -h are not supported: " & tok)
+        let err = consumeShortOption(tok)
+        if err.isSome:
+          return err
     none(string)
 
 

@@ -33,11 +33,16 @@ proc cliHelpRender*(schema: CliSchema; helpPath: seq[string]): string =
       if o.isPositional:
         continue
       let lab = optKindLabel(o.kind)
+      let baseFlag =
+        if o.shortName != CliNoShortName:
+          "-" & $o.shortName & ", --" & o.name
+        else:
+          "--" & o.name
       let flag =
         if o.kind == cliValueNone:
-          "--" & o.name
+          baseFlag
         else:
-          "--" & o.name & " " & lab
+          baseFlag & " " & lab
       let pad = spaces(max(1, 26 - flag.len))
       outl.add "  " & styleCyan(flag) & pad & styleDim(o.description) & "\n"
     return outl

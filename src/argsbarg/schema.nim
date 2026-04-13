@@ -9,6 +9,9 @@ const CliHelpLongFlag* = "--help"
 ## Short help flag token.
 const CliHelpShortFlag* = "-h"
 
+## Marker for options that do not declare a short alias.
+const CliNoShortName* = '\0'
+
 ## Long flag for printing the zsh completion script to stdout instead of installing it.
 const CliPrintLongFlag* = "--print"
 
@@ -40,6 +43,7 @@ type CliOption* = object
   isPositional*: bool
   isRepeated*: bool
   kind*: CliValueKind
+  shortName*: char
   name*: string
 
 ## Declares a command or nested subcommand and optional handler.

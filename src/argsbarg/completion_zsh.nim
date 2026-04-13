@@ -60,6 +60,46 @@ proc emitConsumeLong(ident: string; scopes: seq[ScopeRec]): string =
   result = lines.join("\n") & "\n"
 
 
+## Emits `_nac_consume_short` which classifies short option argv tokens per scope.
+proc emitConsumeShort(ident: string; scopes: seq[ScopeRec]): string =
+  var lines: seq[string] = @[]
+  lines.add "_" & ident & "_nac_consume_short() {"
+  lines.add "  local sid=\"$1\" w=\"$2\""
+  lines.add "  case $sid in"
+  for i, sc in scopes:
+    lines.add "    " & $i & ")"
+    lines.add "      local rest=${w#-}"
+    lines.add "      local ch"
+    lines.add "      local saw=0"
+    lines.add "      while [[ -n $rest ]]; do"
+    lines.add "        ch=${rest[1,1]}"
+    lines.add "        rest=${rest[2,-1]}"
+    lines.add "        case $ch in"
+    var boolChars: seq[string] = @[]
+    for o in sc.opts:
+      if o.isPositional or o.shortName == CliNoShortName:
+        continue
+      if o.kind == cliValueNone:
+        boolChars.add $o.shortName
+      else:
+        lines.add "          " & $o.shortName & ")"
+        lines.add "            if [[ $saw -ne 0 || -n $rest ]]; then return 0; fi"
+        lines.add "            return 2 ;;"
+    if boolChars.len > 0:
+      lines.add "          " & boolChars.join("|") & ") ;;"
+    lines.add "          *) return 0 ;;"
+    lines.add "        esac"
+    lines.add "        saw=1"
+    lines.add "      done"
+    lines.add "      return 1"
+    lines.add "      ;;"
+  lines.add "    *) return 0 ;;"
+  lines.add "  esac"
+  lines.add "  return 0"
+  lines.add "}"
+  result = lines.join("\n") & "\n"
+
+
 ## Emits the compdef wrapper function body for the top-level command.
 proc emitMainBody(schema: CliSchema; ident: string): string =
   let mainName = schema.name.replace("-", "_")
@@ -150,6 +190,8 @@ proc emitScopeArrays(ident: string; scopes: seq[ScopeRec]): string =
         of cliValueString:
           escZsh("--" & o.name & "=<string>")
       optParts.add "'" & lab & ":" & escZsh(o.description) & "'"
+      if o.shortName != CliNoShortName:
+        optParts.add "'" & escZsh("-" & $o.shortName) & ":" & escZsh(o.description) & "'"
     lines.add "typeset -g -a A_" & ident & "_" & $i & "_opts"
     lines.add "A_" & ident & "_" & $i & "_opts=(" & optParts.join(" ") & ")"
     lines.add "typeset -g A_" & ident & "_" & $i & "_leaf=" &
@@ -180,7 +222,14 @@ proc emitSimulate(ident: string): string =
     "      continue\n" &
     "    fi\n" &
     "    if [[ $w == -* ]]; then\n" &
-    "      break\n" &
+    "      local steps\n" &
+    "      steps=$(_" & ident & "_nac_consume_short \"$sid\" \"$w\")\n" &
+    "      case $steps in\n" &
+    "        0) break ;;\n" &
+    "        1) ((i++)) ;;\n" &
+    "        2) ((i++)); break ;;\n" &
+    "      esac\n" &
+    "      continue\n" &
     "    fi\n" &
     "    local next\n" &
     "    next=$(_" & ident & "_nac_match_child \"$sid\" \"$w\") || break\n" &
@@ -251,10 +300,11 @@ proc completionZshScript*(schema: CliSchema): string =
     pathIndex[sc.path] = i
   let arrays = emitScopeArrays(ident, scopes)
   let consume = emitConsumeLong(ident, scopes)
+  let consumeShort = emitConsumeShort(ident, scopes)
   let matchc = emitMatchChild(ident, scopes, pathIndex)
   let sim = emitSimulate(ident)
   let mainB = emitMainBody(schema, ident)
-  result = "#compdef " & schema.name & "\n\n" & arrays & consume & matchc & sim & mainB
+  result = "#compdef " & schema.name & "\n\n" & arrays & consume & consumeShort & matchc & sim & mainB
 
 
 ## Installs or prints the zsh completion script for the active application.

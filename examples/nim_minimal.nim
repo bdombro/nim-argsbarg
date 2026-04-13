@@ -22,6 +22,15 @@ let appSchema = CliSchema(
           isRepeated: false,
           kind: cliValueString,
           name: "name",
+          shortName: 'n',
+        ),
+        CliOption(
+          description: "Print extra logging before the greeting.",
+          isPositional: false,
+          isRepeated: false,
+          kind: cliValueNone,
+          name: "verbose",
+          shortName: 'v',
         ),
       ],
     ),
@@ -40,6 +49,8 @@ proc helloHandler(ctx: CliContext) =
       nameOpt.get
     else:
       helloNameDefault
+  if ctx.optFlag("verbose"):
+    echo "verbose mode enabled"
   echo styleGreen("hello"), " ", name
 
 ## Entry point when this file is compiled as the main module.

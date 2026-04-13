@@ -34,7 +34,24 @@ suite "completionZshScript":
               description: "Top stat.",
               handler: none(CliHandler),
               name: "stat",
-              options: @[],
+              options: @[
+                CliOption(
+                  description: "Verbose output.",
+                  isPositional: false,
+                  isRepeated: false,
+                  kind: cliValueNone,
+                  name: "verbose",
+                  shortName: 'v',
+                ),
+                CliOption(
+                  description: "Choose a format.",
+                  isPositional: false,
+                  isRepeated: false,
+                  kind: cliValueString,
+                  name: "format",
+                  shortName: 'f',
+                ),
+              ],
             ),
           ],
           description: "Root noop.",
@@ -51,6 +68,7 @@ suite "completionZshScript":
     let m = cliMergeBuiltins(s)
     let script = completionZshScript(m)
     check script.contains("lookup:Leaf.")
+    check script.contains("-v")
     let path = getTempDir() / "argsbarg_t_completion.zsh"
     writeFile(path, script)
     let (output, exitCode) = execCmdEx("zsh -n " & path.quoteShell)

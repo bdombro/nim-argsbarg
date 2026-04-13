@@ -15,18 +15,41 @@ proc cliSchemaValidate*(schema: CliSchema) {.raises: [ArgsbargSchemaDefect].} =
       raise ArgsbargSchemaDefect.newException(
         "defaultCommand not found in commands: " & want)
 
+  ## Validates short aliases within a single option scope.
+  proc checkOptions(defs: seq[CliOption]; scope: string) =
+    var seenShorts = initTable[char, string]()
+    for d in defs:
+      if d.shortName == CliNoShortName:
+        continue
+      if d.isPositional:
+        raise ArgsbargSchemaDefect.newException(
+          "Positional arguments must not define short aliases: " & scope & "/" & d.name)
+      if d.shortName == 'h':
+        raise ArgsbargSchemaDefect.newException(
+          "Short alias -h is reserved for help: " & scope & "/" & d.name)
+      if seenShorts.hasKey(d.shortName):
+        let prev = seenShorts.getOrDefault(d.shortName)
+        raise ArgsbargSchemaDefect.newException(
+          "Duplicate short alias -" & $d.shortName & " in scope " & scope &
+          " for options " & prev & " and " & d.name)
+      seenShorts[d.shortName] = d.name
+
   ## Recursively checks routing vs leaf command handler rules.
   proc walk(cmd: CliCommand) =
     if cmd.commands.len > 0:
       if cmd.handler.isSome:
         raise ArgsbargSchemaDefect.newException(
           "Routing command must not set handler: " & cmd.name)
+      checkOptions(cmd.options, cmd.name)
+      checkOptions(cmd.arguments, cmd.name)
       for ch in cmd.commands:
         walk(ch)
     else:
       if cmd.handler.isNone and cmd.name != CliBuiltinCompletionsZshName:
         raise ArgsbargSchemaDefect.newException(
           "Leaf command requires handler: " & cmd.name)
+      checkOptions(cmd.options, cmd.name)
+      checkOptions(cmd.arguments, cmd.name)
 
   for c in schema.commands:
     walk(c)
