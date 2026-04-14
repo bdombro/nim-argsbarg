@@ -2,18 +2,25 @@ import std/[options, strutils, tables]
 import errors
 import schema
 
-## Validates merged schema invariants before parsing argv.
+## Checks a merged schema for mistakes (reserved names, bad fallbacks, duplicate short flags, …)
+## before argv parsing or dispatch.
 proc cliSchemaValidate*(schema: CliSchema) {.raises: [ArgsbargSchemaDefect].} =
-  if schema.defaultCommand.isSome:
+  if schema.fallbackCommand.isNone and (
+      schema.fallbackMode == cliFallbackWhenMissingOrUnknown or
+      schema.fallbackMode == cliFallbackWhenUnknown):
+    raise ArgsbargSchemaDefect.newException(
+      "this fallbackMode requires fallbackCommand")
+
+  if schema.fallbackCommand.isSome:
     var found = false
-    let want = schema.defaultCommand.get
+    let want = schema.fallbackCommand.get
     for c in schema.commands:
       if c.name == want:
         found = true
         break
     if not found:
       raise ArgsbargSchemaDefect.newException(
-        "defaultCommand not found in commands: " & want)
+        "fallbackCommand not found in commands: " & want)
 
   ## Validates short aliases within a single option scope.
   proc checkOptions(defs: seq[CliOption]; scope: string) =

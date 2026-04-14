@@ -90,13 +90,6 @@ subcommands (the backing node keeps an empty `commands` sequence).
 A **routing node** is built with `cliGroup`, which requires a non-optional `commands` sequence.
 argsbarg shows contextual help if the user stops on that node instead of choosing a subcommand.
 
-### `defaultCommand`
-
-Set `CliSchema.defaultCommand` to a top-level command name and that command runs when the user
-passes no command token at all. Leave it unset (the default) and root help is printed instead.
-Only the root schema gets this behavior. Nested routing nodes still show contextual help when argv
-runs out, because guessing there would be a terrible personality trait for a CLI.
-
 ### Options and positionals
 
 - Long options: `--name` or `--name value` or `--name=value`.
@@ -116,6 +109,79 @@ ctx.optNumber("count")   # Option[float]
 ctx.optString("name")    # Option[string]
 ```
 
+
+### Root command fallback (`fallbackCommand` / `fallbackMode`)
+
+Many CLIs spell the real work as a subcommand (`compress`, `run`, `read`, …). Users often skip
+that word and start with flags or paths (`tool -q 2 a.pdf`). Root fallback lets you describe that
+behavior in the schema instead of maintaining a separate argv preprocessor.
+
+You set two optional fields on **`CliSchema`**:
+
+- **`fallbackCommand`**: a `some("name")` top-level command. The name must match a direct child of
+  `commands` (after `cliMergeBuiltins`, built-ins such as `completions-zsh` count as siblings).
+- **`fallbackMode`**: when that fallback is allowed to run. Three choices below.
+
+Only the **app root** uses this. Nested `cliGroup` nodes do not auto-pick a child when argv stops
+halfway down the tree.
+
+If you leave **`fallbackCommand` unset**, nothing special happens: empty argv still shows root
+help (unless the user passes `-h` / `--help`). The modes **`cliFallbackWhenMissingOrUnknown`** and
+**`cliFallbackWhenUnknown`** require **`fallbackCommand`** to be set, or `cliSchemaValidate` raises.
+
+The examples below assume a toy app with top-level commands **`compress`** (the main job),
+**`list`**, plus the usual **`completions-zsh`**, and **`fallbackCommand: some("compress")`**.
+
+#### `cliFallbackWhenMissing` (default)
+
+Use the fallback **only** when there is no top-level command word left after root options. If the
+user types another real command, that command wins.
+
+```bash
+mytool                         # → runs compress (argv was “empty” at the command slot)
+mytool compress doc.pdf        # → runs compress
+mytool list                    # → runs list
+mytool -q 2 doc.pdf            # → error unless -q is a declared *root* option
+```
+
+Pick this when **`mytool` alone should run the main subcommand** and you still want unknown first
+words to be errors (typos surface as “unknown command”).
+
+#### `cliFallbackWhenMissingOrUnknown`
+
+Same as **`cliFallbackWhenMissing`** for an empty command slot, **and**: if the next token is not a
+known top-level command, behave as if **`compress`** were written first. Declared root options are
+still parsed first; other leading flags can belong to **`compress`**. Real command names
+(including **`completions-zsh`**) still beat the fallback.
+
+```bash
+mytool                         # → runs compress
+mytool -q 2 doc.pdf            # → runs compress with -q and doc.pdf (typical single-action CLI)
+mytool doc.pdf                 # → runs compress; doc.pdf is a positional for compress
+mytool list                    # → runs list
+mytool completions-zsh         # → built-in, not compress
+```
+
+Pick this for **verb-optional** single-action tools (`pdf-compress`-style).
+
+#### `cliFallbackWhenUnknown`
+
+Like **`cliFallbackWhenMissingOrUnknown`** for the **non-empty** case, but **never** auto-select the
+fallback when the command slot is completely empty: **`mytool` alone prints root overview help**.
+As soon as there is at least one token that is not a known top-level command, routing matches
+**`cliFallbackWhenMissingOrUnknown`**.
+
+```bash
+mytool                         # → root help (lists compress, list, completions-zsh, …)
+mytool doc.pdf                 # → runs compress on doc.pdf
+mytool -q 2 doc.pdf            # → runs compress with flags and file
+mytool list                    # → runs list
+```
+
+Pick this when the app has **several** top-level commands but **one path-shaped default**. In this
+repo that includes **`nim_file`**, **`nimr`**, **`gor`**, and the **`te-bin`** tools.
+
+
 ## Examples
 
 ### `examples/nim_minimal.nim`
@@ -126,6 +192,7 @@ The tiny version: one command, one option, no drama.
 nim c -p:src examples/nim_minimal.nim
 ./examples/nim_minimal hello --name world
 ./examples/nim_minimal hello -n world
+./examples/nim_minimal --name world
 ./examples/nim_minimal -h
 ./examples/nim_minimal completions-zsh --print
 ```
@@ -138,7 +205,8 @@ routing levels, and positional arguments.
 ```bash
 nim c -p:src examples/nim_file.nim
 
-./examples/nim_file                         # root help
+./examples/nim_file                         # overview help (no args)
+./examples/nim_file ./README.md            # same as read (bare path)
 ./examples/nim_file stat -h
 ./examples/nim_file stat owner -h
 ./examples/nim_file stat owner lookup --user-name alice ./README.md
@@ -255,13 +323,25 @@ String positional slot (`cliValueString`, `isPositional: true`). Optional `isRep
 
 Valued string flag (`cliValueString`). Optional short alias like `cliOptFlag`.
 
+### `CliFallbackMode`
+
+Enum for `CliSchema.fallbackMode`. See **Root command fallback** above for full explanation and
+`bash` examples.
+
+| Value | Meaning |
+| --- | --- |
+| `cliFallbackWhenMissing` | Fallback only when no top-level command token remains (after root flags). |
+| `cliFallbackWhenMissingOrUnknown` | Same, plus unknown first token is parsed as if `fallbackCommand` were first. |
+| `cliFallbackWhenUnknown` | Empty command slot → root help; unknown first token behaves like `cliFallbackWhenMissingOrUnknown`. |
+
 ### `CliSchema`
 
 | Field | Type | Required / Default | Notes |
 | --- | --- | --- | --- |
 | `commands` | `seq[CliCommand]` | Required | Top-level commands (from `cliLeaf` / `cliGroup` or `CliCommand(...)`). `cliMergeBuiltins` appends `completions-zsh` here, so don't steal that name. |
-| `defaultCommand` | `Option[string]` | Default: `none(string)` | Name of the top-level command to run when the user passes no command token. Must exist in `commands`, and validation checks that. |
 | `description` | `string` | Required | One-liner shown in root help. |
+| `fallbackCommand` | `Option[string]` | Default: `none(string)` | Top-level command name used when fallback applies. Must exist in `commands`; validated. |
+| `fallbackMode` | `CliFallbackMode` | Default: `cliFallbackWhenMissing` | When `fallbackCommand` applies; includes `cliFallbackWhenUnknown` (empty → root help, unknown token → fallback). |
 | `name` | `string` | Required | App name. Also used for the completion script filename as `_{name}`. |
 | `options` | `seq[CliOption]` | Default: `@[]` | Root-level flags, parsed before the first command token. |
 

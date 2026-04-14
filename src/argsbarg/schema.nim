@@ -57,12 +57,36 @@ type CliCommand* = object
   name*: string
   options*: seq[CliOption] = @[]
 
+## Controls when ``CliSchema.fallbackCommand`` is applied at the app root.
+type CliFallbackMode* = enum
+  ## Pick ``fallbackCommand`` only when the user never typed a top-level command word (after any
+  ## root flags). If you leave ``fallbackCommand`` unset, an empty argv still shows normal root
+  ## help—this value is for apps that want ``myapp`` alone to run one subcommand without changing
+  ## ``myapp -h`` or ``myapp othercmd``.
+  cliFallbackWhenMissing
+  ## Same as ``cliFallbackWhenMissing``, and also: if the next word is not a known top-level
+  ## command, behave as if ``fallbackCommand`` were written first. Use this for tools where users
+  ## often pass flags or paths before the verb. Real subcommand names (including ``completions-zsh``)
+  ## always win over the fallback.
+  cliFallbackWhenMissingOrUnknown
+  ## Never pick ``fallbackCommand`` on an empty invocation: root help still prints. If the first
+  ## command-level token exists but is not a known top-level command, route like
+  ## ``cliFallbackWhenMissingOrUnknown``. For ``myapp`` vs ``myapp ./file`` (implicit ``read``).
+  cliFallbackWhenUnknown
+
 ## Declares the full CLI surface for an application.
-## Omitted `options` defaults to an empty sequence; `defaultCommand` defaults to `none(string)`.
+## Omitted ``options`` defaults to an empty sequence. ``fallbackCommand`` defaults to unset
+## (``none``); ``fallbackMode`` defaults to ``cliFallbackWhenMissing``.
 type CliSchema* = object
   commands*: seq[CliCommand]
-  defaultCommand*: Option[string] = none(string)
   description*: string
+  ## Optional top-level command name. When routing rules say to use it, that command runs instead
+  ## of stopping at the app root. Must match a child of ``commands``. Leave unset if ``app`` with
+  ## no args should print the usual root help listing every command.
+  fallbackCommand*: Option[string] = none(string)
+  ## See ``CliFallbackMode``. ``cliFallbackWhenMissingOrUnknown`` and ``cliFallbackWhenUnknown``
+  ## require ``fallbackCommand`` to be set.
+  fallbackMode*: CliFallbackMode = cliFallbackWhenMissing
   name*: string
   options*: seq[CliOption] = @[]
 

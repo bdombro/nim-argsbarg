@@ -31,6 +31,8 @@ run-example-minimal *args:
 # Build nim_file and run a small set of CLI and zsh completion checks.
 smoke-file:
     just build
+    ./examples/nim_file 2>&1 | grep -q "Usage:"
+    ./examples/nim_file ./README.md | grep -q "argsbarg"
     ./examples/nim_file -h >/dev/null
     ./examples/nim_file stat -h >/dev/null
     ./examples/nim_file stat owner -h >/dev/null
@@ -41,6 +43,7 @@ smoke-file:
 smoke-minimal:
     just build
     ./examples/nim_minimal hello --name world | grep -q world
+    ./examples/nim_minimal --name world | grep -q world
     ./examples/nim_minimal -h >/dev/null
     ./examples/nim_minimal completions-zsh --print > /tmp/argsbarg_smoke_minimal.zsh
     zsh -n /tmp/argsbarg_smoke_minimal.zsh

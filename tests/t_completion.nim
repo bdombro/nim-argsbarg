@@ -1,4 +1,4 @@
-import std/[options, os, osproc, strutils, unittest]
+import std/[os, osproc, strutils, unittest]
 import argsbarg
 import argsbarg/completion_zsh
 
@@ -31,7 +31,6 @@ suite "completionZshScript":
           ],
         ),
       ],
-      defaultCommand: none(string),
       description: "Test app.",
       name: "tapp_zsh",
       options: @[],
@@ -59,7 +58,6 @@ suite "completionZshScript":
           ],
         ),
       ],
-      defaultCommand: none(string),
       description: "Echo test app.",
       name: "tapp_echo",
       options: @[],

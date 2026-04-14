@@ -15,25 +15,27 @@ proc helloHandler(ctx: CliContext) =
   if ctx.optFlag("verbose"):
     echo "verbose mode enabled"
   echo styleGreen("hello"), " ", name
-  
 
-## Schema for the `nim_minimal` example (single `hello` command).
-let appSchema = CliSchema(
-  commands: @[
-    cliLeaf(
-      "hello",
-      "Print a greeting.",
-      helloHandler,
-      options = @[
-        cliOptString("name", "Name to greet.", 'n'),
-        cliOptFlag("verbose", "Print extra logging before the greeting.", 'v'),
-      ],
-    ),
-  ],
-  description: "Minimal argsbarg example.",
-  name: "nim_minimal",
-)
-
-## Entry point when this file is compiled as the main module.
+## Entry point when this file is compiled as the main module. Uses root fallback so flags can
+## appear before ``hello`` (see README: ``fallbackCommand`` / ``fallbackMode``).
 when isMainModule:
-  cliRun(appSchema, commandLineParams())
+  cliRun(
+    CliSchema(
+      commands: @[
+        cliLeaf(
+          "hello",
+          "Print a greeting.",
+          helloHandler,
+          options = @[
+            cliOptString("name", "Name to greet.", 'n'),
+            cliOptFlag("verbose", "Print extra logging before the greeting.", 'v'),
+          ],
+        ),
+      ],
+      description: "Minimal argsbarg example.",
+      fallbackCommand: some("hello"),
+      fallbackMode: cliFallbackWhenMissingOrUnknown,
+      name: "nim_minimal",
+    ),
+    commandLineParams(),
+  )

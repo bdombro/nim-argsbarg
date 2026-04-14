@@ -62,74 +62,82 @@ proc writeHandler(ctx: CliContext) =
   writeFile(path, content)
   echo styleGreen("wrote: ") & path
 
-## Root CLI schema for the `nim_file` example binary.
-let appSchema = CliSchema(
-  commands: @[
-    cliLeaf("rm", "Remove files.", rmHandler),
-    cliLeaf(
-      "read",
-      "Print file contents.",
-      readHandler,
-      arguments = @[
-        cliOptPositional("path", "File to read."),
-      ],
-    ),
-    cliGroup(
-      "stat",
-      "File metadata and nested ownership inspection.",
-      commands = @[
+## Runs the demo CLI. Empty argv shows app-wide help; a bare path (first token is not a known
+## command) runs ``read`` on that path; ``stat``, ``rm``, and the rest stay explicit.
+when isMainModule:
+  cliRun(
+    CliSchema(
+      commands: @[
+        cliLeaf("rm", "Remove files.", rmHandler),
+        cliLeaf(
+          "read",
+          "Print file contents.",
+          readHandler,
+          arguments = @[
+            cliOptPositional("path", "File to read."),
+          ],
+        ),
         cliGroup(
-          "owner",
-          "Inspect owner-related metadata.",
+          "stat",
+          "File metadata and nested ownership inspection.",
           commands = @[
-            cliLeaf(
-              "lookup",
-              "Look up owner details for the selected files.",
-              statOwnerLookupHandler,
-              arguments = @[
-                cliOptPositional("files", "One or more file paths.", isRepeated = true),
+            cliGroup(
+              "owner",
+              "Inspect owner-related metadata.",
+              commands = @[
+                cliLeaf(
+                  "lookup",
+                  "Look up owner details for the selected files.",
+                  statOwnerLookupHandler,
+                  arguments = @[
+                    cliOptPositional(
+                      "files",
+                      "One or more file paths.",
+                      isRepeated = true,
+                    ),
+                  ],
+                  options = @[
+                    cliOptString("user-name", "Filter by an explicit user name."),
+                  ],
+                ),
               ],
               options = @[
-                cliOptString("user-name", "Filter by an explicit user name."),
+                cliOptNumber("numeric", "Resolve the owner id numerically."),
               ],
             ),
           ],
           options = @[
-            cliOptNumber("numeric", "Resolve the owner id numerically."),
+            cliOptString("format", "Choose the output format (color,json)."),
+          ],
+        ),
+        cliLeaf(
+          "touch",
+          "Create or update file timestamps.",
+          touchHandler,
+          arguments = @[
+            cliOptPositional("paths", "Paths to touch.", isRepeated = true),
+          ],
+        ),
+        cliLeaf(
+          "write",
+          "Write content to a file.",
+          writeHandler,
+          arguments = @[
+            cliOptPositional("path", "File to write."),
+          ],
+          options = @[
+            cliOptString("content", "Content to write."),
           ],
         ),
       ],
-      options = @[
-        cliOptString("format", "Choose the output format (color,json)."),
+      description:
+        "Small file utilities: read, write, touch, rm, nested stat; bare paths use read.",
+      fallbackCommand: some("read"),
+      fallbackMode: cliFallbackWhenUnknown,
+      name: "nim_file",
+      options: @[
+        cliOptString("color-mode", "Select the output color mode example value."),
       ],
     ),
-    cliLeaf(
-      "touch",
-      "Create or update file timestamps.",
-      touchHandler,
-      arguments = @[
-        cliOptPositional("paths", "Paths to touch.", isRepeated = true),
-      ],
-    ),
-    cliLeaf(
-      "write",
-      "Write content to a file.",
-      writeHandler,
-      arguments = @[
-        cliOptPositional("path", "File to write."),
-      ],
-      options = @[
-        cliOptString("content", "Content to write."),
-      ],
-    ),
-  ],
-  description: "Small file utilities from the command line.",
-  name: "nim_file",
-  options: @[
-    cliOptString("color-mode", "Select the output color mode example value."),
-  ],
-)
-
-## Entry point when this file is compiled as the main module.
-when isMainModule:
-  cliRun(appSchema, commandLineParams())
+    commandLineParams(),
+  )

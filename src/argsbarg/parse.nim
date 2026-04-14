@@ -36,9 +36,23 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
     tok == CliHelpShortFlag or tok == CliHelpLongFlag
 
 
-  ## Consumes long options at the current argv index until a non-flag token.
-  proc consumeOptions(defs: seq[CliOption]): Option[string] =
-    proc consumeLongOption(tok: string): Option[string] =
+  ## Result of scanning argv for flags: either an error string, or a clean stop because the next
+  ## token is not a flag, or ``stoppedOnUnknown`` when root parsing should hand the token to the
+  ## fallback command instead of rejecting it as an unknown root option.
+  type CliConsumeOptsReport = object
+    err: Option[string]
+    stoppedOnUnknown: bool
+
+  ## Reads consecutive ``--foo`` / ``-f`` tokens using ``defs``. When ``lenientUnknown`` is true,
+  ## an unrecognized flag stops consumption without error so a later stage can treat it as part
+  ## of the fallback subcommand.
+  proc consumeOptions(defs: seq[CliOption]; lenientUnknown: bool): CliConsumeOptsReport =
+    type CliLineConsumeKind = enum
+      cliLineOk
+      cliLineErr
+      cliLineLenientStop
+
+    proc consumeLongOption(tok: string): (CliLineConsumeKind, Option[string]) =
       var optName: string
       var optVal: string
       let eq = tok.find('=')
@@ -49,62 +63,83 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
         optName = tok[2 .. ^1]
         let def = findOptionDef(defs, optName)
         if def.isNone:
-          return some("Unknown option: --" & optName)
+          if lenientUnknown:
+            return (cliLineLenientStop, none(string))
+          return (cliLineErr, some("Unknown option: --" & optName))
         if def.get.kind == cliValueNone:
           optVal = "1"
         else:
           inc i
           if i >= argv.len:
-            return some("Missing value for option: --" & optName)
+            return (cliLineErr, some("Missing value for option: --" & optName))
           optVal = argv[i]
       let def2 = findOptionDef(defs, optName)
       if def2.isNone:
-        return some("Unknown option: --" & optName)
+        if lenientUnknown:
+          return (cliLineLenientStop, none(string))
+        return (cliLineErr, some("Unknown option: --" & optName))
       opts[optName] = optVal
       inc i
-      none(string)
+      (cliLineOk, none(string))
 
 
-    proc consumeShortOption(tok: string): Option[string] =
+    proc consumeShortOption(tok: string): (CliLineConsumeKind, Option[string]) =
       if tok.len < 2:
-        return some("Unexpected option token: " & tok)
+        return (cliLineErr, some("Unexpected option token: " & tok))
       let shorts = tok[1 .. ^1]
       var j = 0
       while j < shorts.len:
         let shortName = shorts[j]
         let def = findOptionDefByShort(defs, shortName)
         if def.isNone:
-          return some("Unknown option: -" & $shortName)
+          if lenientUnknown:
+            return (cliLineLenientStop, none(string))
+          return (cliLineErr, some("Unknown option: -" & $shortName))
         if def.get.kind == cliValueNone:
           opts[def.get.name] = "1"
           inc j
           continue
         if shorts.len != 1:
-          return some("Short option -" & $shortName & " requires a value and cannot be bundled: " & tok)
+          return (
+            cliLineErr,
+            some(
+              "Short option -" & $shortName & " requires a value and cannot be bundled: " & tok,
+            ),
+          )
         inc i
         if i >= argv.len:
-          return some("Missing value for option: -" & $shortName)
+          return (cliLineErr, some("Missing value for option: -" & $shortName))
         opts[def.get.name] = argv[i]
         inc i
-        return none(string)
+        return (cliLineOk, none(string))
       inc i
-      none(string)
+      (cliLineOk, none(string))
 
     while i < argv.len:
       let tok = argv[i]
       if isHelpTok(tok):
-        return none(string)
+        break
       if not tok.startsWith("-"):
         break
       if tok.startsWith("--"):
-        let err = consumeLongOption(tok)
-        if err.isSome:
-          return err
+        let (kind, msg) = consumeLongOption(tok)
+        case kind
+        of cliLineErr:
+          return CliConsumeOptsReport(err: msg)
+        of cliLineLenientStop:
+          return CliConsumeOptsReport(stoppedOnUnknown: true)
+        of cliLineOk:
+          discard
       else:
-        let err = consumeShortOption(tok)
-        if err.isSome:
-          return err
-    none(string)
+        let (kind, msg) = consumeShortOption(tok)
+        case kind
+        of cliLineErr:
+          return CliConsumeOptsReport(err: msg)
+        of cliLineLenientStop:
+          return CliConsumeOptsReport(stoppedOnUnknown: true)
+        of cliLineOk:
+          discard
+    CliConsumeOptsReport()
 
 
   ## Builds a parse result that requests help for path `p`.
@@ -141,31 +176,57 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
       return errorResult("Unexpected extra arguments")
     okResult(path, opts, args)
 
-  let rootOptErr = consumeOptions(schema.options)
-  if rootOptErr.isSome:
-    return errorResult(rootOptErr.get)
+  let rootLenient = schema.fallbackCommand.isSome and (
+    schema.fallbackMode == cliFallbackWhenMissingOrUnknown or
+    schema.fallbackMode == cliFallbackWhenUnknown)
+  let rootReport = consumeOptions(schema.options, rootLenient)
+  if rootReport.err.isSome:
+    return errorResult(rootReport.err.get)
   if i < argv.len and isHelpTok(argv[i]):
     return helpResult(@[])
 
   var cmdName: string
-  if i < argv.len:
-    cmdName = argv[i]
-    inc i
-  elif schema.defaultCommand.isSome:
-    cmdName = schema.defaultCommand.get
+  var node: CliCommand
+  if i >= argv.len:
+    if schema.fallbackCommand.isSome and (
+        schema.fallbackMode == cliFallbackWhenMissing or
+        schema.fallbackMode == cliFallbackWhenMissingOrUnknown):
+      cmdName = schema.fallbackCommand.get
+      let picked = findChild(schema.commands, cmdName)
+      if picked.isNone:
+        return errorResult("Unknown command: " & cmdName)
+      node = picked.get
+    else:
+      return helpResult(@[])
   else:
-    return helpResult(@[])
+    let peek = argv[i]
+    let childPick = findChild(schema.commands, peek)
+    if childPick.isSome:
+      cmdName = peek
+      inc i
+      node = childPick.get
+    elif schema.fallbackCommand.isSome and (
+        schema.fallbackMode == cliFallbackWhenMissingOrUnknown or
+        schema.fallbackMode == cliFallbackWhenUnknown):
+      cmdName = schema.fallbackCommand.get
+      let picked = findChild(schema.commands, cmdName)
+      if picked.isNone:
+        return errorResult("Unknown command: " & cmdName)
+      node = picked.get
+    else:
+      cmdName = peek
+      inc i
+      let picked = findChild(schema.commands, cmdName)
+      if picked.isNone:
+        return errorResult("Unknown command: " & cmdName)
+      node = picked.get
 
-  var nodeOpt = findChild(schema.commands, cmdName)
-  if nodeOpt.isNone:
-    return errorResult("Unknown command: " & cmdName)
   path.add cmdName
-  var node = nodeOpt.get
 
   while true:
-    let oerr = consumeOptions(node.options)
-    if oerr.isSome:
-      return errorResult(oerr.get)
+    let orep = consumeOptions(node.options, false)
+    if orep.err.isSome:
+      return errorResult(orep.err.get)
     if i < argv.len and isHelpTok(argv[i]):
       return helpResult(path)
 
