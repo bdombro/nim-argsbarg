@@ -4,60 +4,31 @@ import argsbarg/completion_zsh
 
 suite "completionZshScript":
   test "emits nested subcommands and passes zsh -n":
-    proc leaf(ctx: CliContext) = discard
+    proc leaf(ctx: CliContext) {.nimcall.} = discard
     let s = CliSchema(
       commands: @[
-        CliCommand(
-          arguments: @[],
-          commands: @[
-            CliCommand(
-              arguments: @[],
-              commands: @[
-                CliCommand(
-                  arguments: @[],
-                  commands: @[
-                    CliCommand(
-                      arguments: @[],
-                      commands: @[],
-                      description: "Leaf.",
-                      handler: some(leaf),
-                      name: "lookup",
-                      options: @[],
-                    ),
+        cliGroup(
+          "noop",
+          "Root noop.",
+          commands = @[
+            cliGroup(
+              "stat",
+              "Top stat.",
+              commands = @[
+                cliGroup(
+                  "owner",
+                  "Mid.",
+                  commands = @[
+                    cliLeaf("lookup", "Leaf.", leaf),
                   ],
-                  description: "Mid.",
-                  handler: none(CliHandler),
-                  name: "owner",
-                  options: @[],
                 ),
               ],
-              description: "Top stat.",
-              handler: none(CliHandler),
-              name: "stat",
-              options: @[
-                CliOption(
-                  description: "Verbose output.",
-                  isPositional: false,
-                  isRepeated: false,
-                  kind: cliValueNone,
-                  name: "verbose",
-                  shortName: 'v',
-                ),
-                CliOption(
-                  description: "Choose a format.",
-                  isPositional: false,
-                  isRepeated: false,
-                  kind: cliValueString,
-                  name: "format",
-                  shortName: 'f',
-                ),
+              options = @[
+                cliOptFlag("verbose", "Verbose output.", 'v'),
+                cliOptString("format", "Choose a format.", 'f'),
               ],
             ),
           ],
-          description: "Root noop.",
-          handler: some(leaf),
-          name: "noop",
-          options: @[],
         ),
       ],
       defaultCommand: none(string),
@@ -75,32 +46,16 @@ suite "completionZshScript":
     check exitCode == 0 and output.strip.len == 0
 
   test "consume helpers echo step counts for simulate capture":
-    proc leaf(ctx: CliContext) = discard
+    proc leaf(ctx: CliContext) {.nimcall.} = discard
     let s = CliSchema(
       commands: @[
-        CliCommand(
-          arguments: @[],
-          commands: @[],
-          description: "Leaf.",
-          handler: some(leaf),
-          name: "run",
-          options: @[
-            CliOption(
-              description: "Verbose.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueNone,
-              name: "verbose",
-              shortName: 'v',
-            ),
-            CliOption(
-              description: "Format.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueString,
-              name: "format",
-              shortName: 'f',
-            ),
+        cliLeaf(
+          "run",
+          "Leaf.",
+          leaf,
+          options = @[
+            cliOptFlag("verbose", "Verbose.", 'v'),
+            cliOptString("format", "Format.", 'f'),
           ],
         ),
       ],

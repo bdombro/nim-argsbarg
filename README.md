@@ -23,23 +23,13 @@ proc greet(ctx: CliContext) =
 
 let schema = CliSchema(
   commands: @[
-    CliCommand(
-      description: "Say hello.",
-      handler: some(greet),
-      name: "hello",
-      options: @[
-        CliOption(
-          description: "Who to greet.",
-          kind: cliValueString,
-          name: "name",
-          shortName: 'n',
-        ),
-        CliOption(
-          description: "Enable extra logging.",
-          kind: cliValueNone,
-          name: "verbose",
-          shortName: 'v',
-        ),
+    cliLeaf(
+      "hello",
+      "Say hello.",
+      greet,
+      options = @[
+        cliOptString("name", "Who to greet.", 'n'),
+        cliOptFlag("verbose", "Enable extra logging.", 'v'),
       ],
     ),
   ],
@@ -83,8 +73,9 @@ because it wants a VCS revision. If it starts pouting, use `just test` or make a
 
 The whole idea is pretty simple:
 
-- **Define a schema** with `CliSchema`, `CliCommand`, and `CliOption`. On Nim 2+, empty seqs and
-  common booleans default sanely, so you usually only write the interesting parts.
+- **Define a schema** with `CliSchema`, `CliCommand`, `CliOption`, and the `cliLeaf` / `cliGroup` /
+  `cliOpt*` helpers. On Nim 2+, empty seqs and common booleans default sanely, so you usually only
+  write the interesting parts.
 - **Call `cliRun(schema, argv)`** and let it validate the schema, parse argv, render help or
   errors, wire in the built-ins, and dispatch the right leaf handler.
 - **Call `cliParse(schema, argv)`** if you want the raw `CliParseResult` for tests or custom
@@ -93,10 +84,11 @@ The whole idea is pretty simple:
 
 ### Commands: leaves vs. routing nodes
 
-A command is a **leaf** when it has no `commands` children. Give it `handler: some(yourProc)`.
+A **leaf** is built with `cliLeaf` and must include a `CliHandler`. It does not declare child
+subcommands (the backing node keeps an empty `commands` sequence).
 
-A command is a **routing node** when it does have children. Give it `handler: none(CliHandler)`
-and argsbarg will show contextual help if the user stops there instead of choosing a subcommand.
+A **routing node** is built with `cliGroup`, which requires a non-optional `commands` sequence.
+argsbarg shows contextual help if the user stops on that node instead of choosing a subcommand.
 
 ### `defaultCommand`
 
@@ -108,9 +100,11 @@ runs out, because guessing there would be a terrible personality trait for a CLI
 ### Options and positionals
 
 - Long options: `--name` or `--name value` or `--name=value`.
-- Short aliases: opt-in with `shortName: 'n'`. Valued shorts use `-n value`; boolean shorts
+- Short aliases: pass a `char` as the last argument to `cliOptFlag` / `cliOptString` /
+  `cliOptNumber` (or omit it for long-only flags). Valued shorts use `-n value`; boolean shorts
   can be bundled (`-abc` sets all three when every flag in the bundle is presence-only).
-- Positionals: `CliOption` with `isPositional: true`, attached to leaf commands via `arguments`.
+- Positionals: `cliOptPositional` (and `isRepeated = true` for a tail that collects every remaining
+  word), attached to leaf commands via `arguments`.
 
 ### Reading values in a handler
 
@@ -166,11 +160,41 @@ Quick legend:
 - **Default** means you can omit it and let Nim do the boring part.
 - **Notes** is where the sharp edges and useful behavior live.
 
+### `cliGroup`
+
+Builds a routing node: `commands` is a required parameter, so you cannot forget nested
+subcommands at compile time. `handler` is always unset (implicit). The return value is the same
+anonymous node type accepted in `CliSchema.commands` and in nested `commands` arguments (see
+`argsbarg/schema.nim` for the full proc signature).
+
+| Parameter | Notes |
+| --- | --- |
+| `name` / `description` | CLI token and help text for this routing node. |
+| `commands` | **Required.** Child commands (each built with `cliLeaf` or `cliGroup`). |
+| `options` | Optional flags on this routing node. |
+
+### `cliLeaf`
+
+Builds a leaf: `handler` is a required `CliHandler` parameter (not an `Option`), so omitting it is
+a compile-time error. Return type is the same node type as for `cliGroup` (again, see
+`argsbarg/schema.nim` for the exact signature).
+
+| Parameter | Notes |
+| --- | --- |
+| `name` / `description` | Command token and help blurb. |
+| `handler` | **Required.** Named proc implementing the command (must match `{.nimcall.}`). |
+| `arguments` | Positional slots (`cliOptPositional` or `CliOption` with `isPositional: true`). |
+| `options` | Flags (`cliOpt*` helpers or explicit `CliOption` values). |
+
 ### `CliCommand`
+
+Declares one command node (leaf or routing). Prefer `cliLeaf` / `cliGroup` so required fields are
+obvious at compile time; you can also construct `CliCommand(...)` directly when you need full
+control.
 
 | Field | Type | Required / Default | Notes |
 | --- | --- | --- | --- |
-| `arguments` | `seq[CliOption]` | Default: `@[]` | Positional slots for a leaf command. Set `isPositional: true` on each one. |
+| `arguments` | `seq[CliOption]` | Default: `@[]` | Positional slots for a leaf command. Use `cliOptPositional` or set `isPositional: true` on each `CliOption`. |
 | `commands` | `seq[CliCommand]` | Default: `@[]` | Nested subcommands. If this has entries, the command is a routing node. |
 | `description` | `string` | Required | Human-readable description shown in help. |
 | `handler` | `Option[CliHandler]` | Required | Leaf: `some(yourProc)`. Routing node: `none(CliHandler)`. If argv stops on a routing node, argsbarg prints contextual help. The injected `completions-zsh` command is special-cased in validation and may also use `none`. |
@@ -194,27 +218,48 @@ This is what your handler receives. It is runtime data, not part of the schema.
 type CliHandler* = proc (ctx: CliContext) {.nimcall.}
 ```
 
-Use a named proc and pass it as `some(yourProc)` on a leaf command.
+Use a named proc and pass it as the `handler` argument to `cliLeaf` (it must use the
+`{.nimcall.}` calling convention, which plain top-level procs satisfy).
 
 ### `CliOption`
 
 This covers both `--flags` and positional slots. `isPositional` is the switch that decides which
-job it's doing.
+job it is doing. The following `cliOpt*` helpers are shorthand; you may still spell
+`CliOption(...)` out by hand.
 
 | Field | Type | Required / Default | Notes |
 | --- | --- | --- | --- |
 | `description` | `string` | Required | Shown in help output. |
-| `isPositional` | `bool` | Default: `false` | Set this to `true` to make the option a positional slot instead of a `--flag`. |
-| `isRepeated` | `bool` | Default: `false` | When `isPositional: true`, this collects all remaining argv words into `ctx.args`. |
-| `kind` | `CliValueKind` | Required | Value kind. See below. |
+| `isPositional` | `bool` | Default: `false` | Set to `true` to make the option a positional slot instead of a `--flag`. |
+| `isRepeated` | `bool` | Default: `false` | When `isPositional: true`, collects all remaining argv words into `ctx.args`. |
+| `kind` | `CliValueKind` | Required | Value kind. See `CliValueKind` below. |
 | `name` | `string` | Required | Long option stem without the `--`. Also the key in `ctx.opts`. |
-| `shortName` | `char` | Default: `'\0'` | Set this to something like `'v'` to enable `-v`. `-h` is reserved for help and rejected during schema validation. Short names must be unique within each `CliCommand.options` list. Root `CliSchema.options` is not checked today, so keep those unique yourself. |
+| `shortName` | `char` | Default: `'\0'` | Set to something like `'v'` to enable `-v`. Short aliases on positionals are rejected by validation. `-h` is reserved for help. Short names must be unique within each command's `options` list. Root `CliSchema.options` is not checked today, so keep those unique yourself. |
+
+### `cliOptFlag`
+
+Presence-only flag (`cliValueNone`). Optional `shortName` defaults to `CliNoShortName` (long
+names only). Full signature lives in `argsbarg/schema.nim`.
+
+### `cliOptNumber`
+
+Valued flag parsed and validated as a float (`cliValueNumber`). Optional short alias like
+`cliOptFlag`.
+
+### `cliOptPositional`
+
+String positional slot (`cliValueString`, `isPositional: true`). Optional `isRepeated` (default
+`false`); when `true`, all remaining argv tokens after flags are collected into `ctx.args`.
+
+### `cliOptString`
+
+Valued string flag (`cliValueString`). Optional short alias like `cliOptFlag`.
 
 ### `CliSchema`
 
 | Field | Type | Required / Default | Notes |
 | --- | --- | --- | --- |
-| `commands` | `seq[CliCommand]` | Required | Top-level commands. `cliMergeBuiltins` appends `completions-zsh` here, so don't steal that name. |
+| `commands` | `seq[CliCommand]` | Required | Top-level commands (from `cliLeaf` / `cliGroup` or `CliCommand(...)`). `cliMergeBuiltins` appends `completions-zsh` here, so don't steal that name. |
 | `defaultCommand` | `Option[string]` | Default: `none(string)` | Name of the top-level command to run when the user passes no command token. Must exist in `commands`, and validation checks that. |
 | `description` | `string` | Required | One-liner shown in root help. |
 | `name` | `string` | Required | App name. Also used for the completion script filename as `_{name}`. |
@@ -222,7 +267,7 @@ job it's doing.
 
 ### `CliValueKind`
 
-`CliOption.kind` can be one of three values:
+`CliOption.kind` (or the matching `cliOpt*` helper) uses one of these values:
 
 | Value | Meaning |
 | --- | --- |

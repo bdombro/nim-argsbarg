@@ -78,6 +78,63 @@ type CliParseResult* = object
     opts*: Table[string, string]
     path*: seq[string]
 
+## Builds a routing command with child subcommands and no dispatch handler.
+proc cliGroup*(
+    name, description: string;
+    commands: seq[CliCommand];
+    options: seq[CliOption] = @[],
+): CliCommand =
+  CliCommand(
+    commands: commands,
+    description: description,
+    handler: none(CliHandler),
+    name: name,
+    options: options,
+  )
+
+
+## Builds a leaf command with a required handler and optional flags or positionals.
+proc cliLeaf*(
+    name, description: string;
+    handler: CliHandler;
+    arguments: seq[CliOption] = @[];
+    options: seq[CliOption] = @[],
+): CliCommand =
+  CliCommand(
+    arguments: arguments,
+    description: description,
+    handler: some(handler),
+    name: name,
+    options: options,
+  )
+
+
+## Builds a presence-only flag definition (`cliValueNone`).
+proc cliOptFlag*(name, description: string; shortName: char = CliNoShortName): CliOption =
+  CliOption(description: description, kind: cliValueNone, name: name, shortName: shortName)
+
+
+## Builds a floating-valued flag definition (`cliValueNumber`).
+proc cliOptNumber*(name, description: string; shortName: char = CliNoShortName): CliOption =
+  CliOption(description: description, kind: cliValueNumber, name: name, shortName: shortName)
+
+
+## Builds a string positional slot (`cliValueString`, `isPositional` true).
+proc cliOptPositional*(name, description: string; isRepeated: bool = false): CliOption =
+  CliOption(
+    description: description,
+    isPositional: true,
+    isRepeated: isRepeated,
+    kind: cliValueString,
+    name: name,
+  )
+
+
+## Builds a string-valued flag definition (`cliValueString`).
+proc cliOptString*(name, description: string; shortName: char = CliNoShortName): CliOption =
+  CliOption(description: description, kind: cliValueString, name: name, shortName: shortName)
+
+
 ## Returns whether a presence-only option was supplied on the context.
 proc optFlag*(ctx: CliContext; name: string): bool {.inline.} =
   name in ctx.opts

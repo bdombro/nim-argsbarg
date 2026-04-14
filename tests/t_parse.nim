@@ -5,53 +5,16 @@ suite "cliParse":
   proc makeLeafSchema(): CliSchema =
     CliSchema(
       commands: @[
-        CliCommand(
-          arguments: @[],
-          commands: @[],
-          description: "Run the app.",
-          handler: some(proc(ctx: CliContext) = discard),
-          name: "run",
-          options: @[
-            CliOption(
-              description: "Enable verbose logging.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueNone,
-              name: "verbose",
-              shortName: 'v',
-            ),
-            CliOption(
-              description: "Choose an output format.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueString,
-              name: "format",
-              shortName: 'f',
-            ),
-            CliOption(
-              description: "Bundle test boolean A.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueNone,
-              name: "alpha",
-              shortName: 'a',
-            ),
-            CliOption(
-              description: "Bundle test boolean B.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueNone,
-              name: "beta",
-              shortName: 'b',
-            ),
-            CliOption(
-              description: "Bundle test boolean C.",
-              isPositional: false,
-              isRepeated: false,
-              kind: cliValueNone,
-              name: "gamma",
-              shortName: 'c',
-            ),
+        cliLeaf(
+          "run",
+          "Run the app.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          options = @[
+            cliOptFlag("verbose", "Enable verbose logging.", 'v'),
+            cliOptString("format", "Choose an output format.", 'f'),
+            cliOptFlag("alpha", "Bundle test boolean A.", 'a'),
+            cliOptFlag("beta", "Bundle test boolean B.", 'b'),
+            cliOptFlag("gamma", "Bundle test boolean C.", 'c'),
           ],
         ),
       ],
@@ -64,13 +27,10 @@ suite "cliParse":
   test "empty argv yields root help when no defaultCommand":
     let s = CliSchema(
       commands: @[
-        CliCommand(
-          arguments: @[],
-          commands: @[],
-          description: "Do nothing.",
-          handler: some(proc(ctx: CliContext) = discard),
-          name: "noop",
-          options: @[],
+        cliLeaf(
+          "noop",
+          "Do nothing.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
         ),
       ],
       defaultCommand: none(string),
@@ -86,13 +46,10 @@ suite "cliParse":
   test "defaultCommand selects without consuming argv":
     let s = CliSchema(
       commands: @[
-        CliCommand(
-          arguments: @[],
-          commands: @[],
-          description: "Do nothing.",
-          handler: some(proc(ctx: CliContext) = discard),
-          name: "noop",
-          options: @[],
+        cliLeaf(
+          "noop",
+          "Do nothing.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
         ),
       ],
       defaultCommand: some("noop"),

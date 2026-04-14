@@ -13,7 +13,7 @@ export dispatch.cliMergeBuiltins, dispatch.cliRun
 ## Re-exports argv parsing entry point.
 export parse.cliParse
 
-## Re-exports the schema types and helpers used to declare CLIs.
+## Re-exports the schema types and helpers used to declare CLIs (including `CliCommand` and `CliOption`).
 export schema
 
 ## Re-exports terminal styling helpers and constants.

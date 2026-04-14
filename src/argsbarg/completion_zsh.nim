@@ -1,4 +1,4 @@
-import std/[algorithm, options, os, strutils, tables]
+import std/[algorithm, os, strutils, tables]
 import schema
 import style
 
@@ -277,13 +277,11 @@ proc collectScopes(schema: CliSchema): seq[ScopeRec] =
 
 ## Builtin command definition merged into every consumer schema (handled in `cliRun`).
 proc completionZshBuiltinCommand*(): CliCommand =
-  CliCommand(
-    arguments: @[],
-    commands: @[],
-    description: "Install zsh tab completions to ~/.zsh/completions/_<appname>. To print the script to stdout, use --print.",
-    handler: none(CliHandler),
-    name: CliBuiltinCompletionsZshName,
-    options: @[
+  cliGroup(
+    CliBuiltinCompletionsZshName,
+    "Install zsh tab completions to ~/.zsh/completions/_<appname>. To print the script to stdout, use --print.",
+    commands = @[],
+    options = @[
       CliOption(
         description: "Print the completion script to stdout instead of installing it.",
         isPositional: false,

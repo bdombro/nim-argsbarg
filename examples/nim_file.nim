@@ -65,116 +65,68 @@ proc writeHandler(ctx: CliContext) =
 ## Root CLI schema for the `nim_file` example binary.
 let appSchema = CliSchema(
   commands: @[
-    CliCommand(
-      description: "Remove files.",
-      handler: some(rmHandler),
-      name: "rm",
-    ),
-    CliCommand(
-      arguments: @[
-        CliOption(
-          description: "File to read.",
-          isPositional: true,
-          kind: cliValueString,
-          name: "path",
-        ),
+    cliLeaf("rm", "Remove files.", rmHandler),
+    cliLeaf(
+      "read",
+      "Print file contents.",
+      readHandler,
+      arguments = @[
+        cliOptPositional("path", "File to read."),
       ],
-      description: "Print file contents.",
-      handler: some(readHandler),
-      name: "read",
     ),
-    CliCommand(
-      commands: @[
-        CliCommand(
-          commands: @[
-            CliCommand(
-              arguments: @[
-                CliOption(
-                  description: "One or more file paths.",
-                  isPositional: true,
-                  isRepeated: true,
-                  kind: cliValueString,
-                  name: "files",
-                ),
+    cliGroup(
+      "stat",
+      "File metadata and nested ownership inspection.",
+      commands = @[
+        cliGroup(
+          "owner",
+          "Inspect owner-related metadata.",
+          commands = @[
+            cliLeaf(
+              "lookup",
+              "Look up owner details for the selected files.",
+              statOwnerLookupHandler,
+              arguments = @[
+                cliOptPositional("files", "One or more file paths.", isRepeated = true),
               ],
-              description: "Look up owner details for the selected files.",
-              handler: some(statOwnerLookupHandler),
-              name: "lookup",
-              options: @[
-                CliOption(
-                  description: "Filter by an explicit user name.",
-                  kind: cliValueString,
-                  name: "user-name",
-                ),
+              options = @[
+                cliOptString("user-name", "Filter by an explicit user name."),
               ],
             ),
           ],
-          description: "Inspect owner-related metadata.",
-          handler: none(CliHandler),
-          name: "owner",
-          options: @[
-            CliOption(
-              description: "Resolve the owner id numerically.",
-              kind: cliValueNumber,
-              name: "numeric",
-            ),
+          options = @[
+            cliOptNumber("numeric", "Resolve the owner id numerically."),
           ],
         ),
       ],
-      description: "File metadata and nested ownership inspection.",
-      handler: none(CliHandler),
-      name: "stat",
-      options: @[
-        CliOption(
-          description: "Choose the output format (color,json).",
-          kind: cliValueString,
-          name: "format",
-        ),
+      options = @[
+        cliOptString("format", "Choose the output format (color,json)."),
       ],
     ),
-    CliCommand(
-      arguments: @[
-        CliOption(
-          description: "Paths to touch.",
-          isPositional: true,
-          isRepeated: true,
-          kind: cliValueString,
-          name: "paths",
-        ),
+    cliLeaf(
+      "touch",
+      "Create or update file timestamps.",
+      touchHandler,
+      arguments = @[
+        cliOptPositional("paths", "Paths to touch.", isRepeated = true),
       ],
-      description: "Create or update file timestamps.",
-      handler: some(touchHandler),
-      name: "touch",
     ),
-    CliCommand(
-      arguments: @[
-        CliOption(
-          description: "File to write.",
-          isPositional: true,
-          kind: cliValueString,
-          name: "path",
-        ),
+    cliLeaf(
+      "write",
+      "Write content to a file.",
+      writeHandler,
+      arguments = @[
+        cliOptPositional("path", "File to write."),
       ],
-      description: "Write content to a file.",
-      handler: some(writeHandler),
-      name: "write",
-      options: @[
-        CliOption(
-          description: "Content to write.",
-          kind: cliValueString,
-          name: "content",
-        ),
+      options = @[
+        cliOptString("content", "Content to write."),
       ],
     ),
   ],
   description: "Small file utilities from the command line.",
   name: "nim_file",
   options: @[
-    CliOption(
-      description: "Select the output color mode example value.",
-      kind: cliValueString,
-      name: "color-mode",
-    ),
+    cliOptString("color-mode", "Select the output color mode example value."),
   ],
 )
 

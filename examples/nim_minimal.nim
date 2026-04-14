@@ -20,23 +20,13 @@ proc helloHandler(ctx: CliContext) =
 ## Schema for the `nim_minimal` example (single `hello` command).
 let appSchema = CliSchema(
   commands: @[
-    CliCommand(
-      description: "Print a greeting.",
-      handler: some(helloHandler),
-      name: "hello",
-      options: @[
-        CliOption(
-          description: "Name to greet.",
-          kind: cliValueString,
-          name: "name",
-          shortName: 'n',
-        ),
-        CliOption(
-          description: "Print extra logging before the greeting.",
-          kind: cliValueNone,
-          name: "verbose",
-          shortName: 'v',
-        ),
+    cliLeaf(
+      "hello",
+      "Print a greeting.",
+      helloHandler,
+      options = @[
+        cliOptString("name", "Name to greet.", 'n'),
+        cliOptFlag("verbose", "Print extra logging before the greeting.", 'v'),
       ],
     ),
   ],
