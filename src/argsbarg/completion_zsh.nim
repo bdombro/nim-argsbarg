@@ -98,7 +98,6 @@ proc emitConsumeShort(ident: string; scopes: seq[ScopeRec]): string =
     lines.add "      ;;"
   lines.add "    *) echo 0 ;;"
   lines.add "  esac"
-  lines.add "  echo 0"
   lines.add "}"
   result = lines.join("\n") & "\n"
 
@@ -221,6 +220,7 @@ proc emitSimulate(ident: string): string =
     "        0) break ;;\n" &
     "        1) ((i++)) ;;\n" &
     "        2) ((i+=2)) ;;\n" &
+    "        *) break ;;\n" &
     "      esac\n" &
     "      continue\n" &
     "    fi\n" &
@@ -231,6 +231,7 @@ proc emitSimulate(ident: string): string =
     "        0) break ;;\n" &
     "        1) ((i++)) ;;\n" &
     "        2) ((i++)); break ;;\n" &
+    "        *) break ;;\n" &
     "      esac\n" &
     "      continue\n" &
     "    fi\n" &

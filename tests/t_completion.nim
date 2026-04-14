@@ -67,3 +67,33 @@ suite "completionZshScript":
     check script.contains(CliHelpLongFlag & "|" & CliHelpLongFlag & "=*|" & CliHelpShortFlag & ") echo 1 ;;")
     check script.contains("echo 2; return ;;")
     check not script.contains(CliHelpLongFlag & "|" & CliHelpLongFlag & "=*|" & CliHelpShortFlag & ") return 1 ;;")
+
+  test "consume_short emits one line for boolean short flags (no trailing echo 0)":
+    proc leaf(ctx: CliContext) {.nimcall.} = discard
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Leaf.",
+          leaf,
+          options = @[
+            cliOptFlag("verbose", "Verbose.", 'v'),
+            cliOptString("format", "Format.", 'f'),
+          ],
+        ),
+      ],
+      description: "Short-flag regression app.",
+      name: "tapp_short1",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let script = completionZshScript(m)
+    check not script.contains("  esac\n  echo 0\n}")
+    check script.contains("        *) break ;;\n")
+    let path = getTempDir() / "argsbarg_t_completion_consume_short.zsh"
+    writeFile(path, script)
+    let inner =
+      "source " & path.quoteShell & " 2>/dev/null; _tapp_short1_nac_consume_short 1 -v"
+    let (output, exitCode) = execCmdEx("zsh -fc " & inner.quoteShell)
+    check exitCode == 0
+    check output.strip == "1"
