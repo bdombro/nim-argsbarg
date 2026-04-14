@@ -28,12 +28,12 @@ proc findLeaf(merged: CliSchema; path: seq[string]): Option[CliCommand] =
   cur
 
 
-## Returns a merged schema including framework built-ins such as `completions-zsh`.
+## Returns a merged schema including framework built-ins such as `completion zsh`.
 proc cliMergeBuiltins*(schema: CliSchema): CliSchema =
   for c in schema.commands:
-    if c.name == CliBuiltinCompletionsZshName:
+    if c.name == CliBuiltinCompletionName:
       raise ArgsbargSchemaDefect.newException(
-        "Reserved command name: " & CliBuiltinCompletionsZshName)
+        "Reserved command name: " & CliBuiltinCompletionName)
   result = schema
   result.commands.add completionZshBuiltinCommand()
 
@@ -52,7 +52,7 @@ proc cliRun*(schema: CliSchema; argv: seq[string]) =
     stderr.writeLine(styleRed(pr.msg))
     quit(1)
   of cliParseOk:
-    if pr.path.len == 1 and pr.path[0] == CliBuiltinCompletionsZshName:
+    if pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and pr.path[1] == CliBuiltinCompletionZshName:
       let ctx = CliContext(
         appName: merged.name,
         args: pr.args,

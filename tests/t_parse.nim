@@ -1,5 +1,19 @@
-import std/[options, strutils, tables, unittest]
+import std/[os, options, strutils, tables, unittest]
 import argsbarg
+
+## Helper to strip ANSI escape sequences from strings.
+proc stripAnsi(s: string): string =
+  var i = 0
+  while i < s.len:
+    if s[i] == '\e' and i + 1 < s.len and s[i + 1] == '[':
+      i += 2
+      while i < s.len and s[i] != 'm':
+        inc i
+      if i < s.len:
+        inc i
+    else:
+      result.add s[i]
+      inc i
 
 suite "cliParse":
   proc makeLeafSchema(): CliSchema =
@@ -138,7 +152,7 @@ suite "cliParse":
     check pr.kind == cliParseOk
     check pr.path == @["other"]
 
-  test "cliFallbackWhenMissingOrUnknown still dispatches completions-zsh":
+  test "cliFallbackWhenMissingOrUnknown still dispatches completion zsh":
     let s = CliSchema(
       commands: @[
         cliLeaf(
@@ -154,9 +168,9 @@ suite "cliParse":
       options: @[],
     )
     let m = cliMergeBuiltins(s)
-    let pr = cliParse(m, @[CliBuiltinCompletionsZshName])
+    let pr = cliParse(m, @[CliBuiltinCompletionName, CliBuiltinCompletionZshName])
     check pr.kind == cliParseOk
-    check pr.path == @[CliBuiltinCompletionsZshName]
+    check pr.path == @[CliBuiltinCompletionName, CliBuiltinCompletionZshName]
 
   test "cliFallbackWhenMissingOrUnknown consumes known root flags before fallback command":
     let s = CliSchema(
@@ -241,7 +255,7 @@ suite "cliParse":
     check pr.path == @["read"]
     check pr.args == @["secret.txt"]
 
-  test "cliFallbackWhenUnknown still dispatches completions-zsh":
+  test "cliFallbackWhenUnknown still dispatches completion zsh":
     let s = CliSchema(
       commands: @[
         cliLeaf(
@@ -257,9 +271,9 @@ suite "cliParse":
       options: @[],
     )
     let m = cliMergeBuiltins(s)
-    let pr = cliParse(m, @[CliBuiltinCompletionsZshName])
+    let pr = cliParse(m, @[CliBuiltinCompletionName, CliBuiltinCompletionZshName])
     check pr.kind == cliParseOk
-    check pr.path == @[CliBuiltinCompletionsZshName]
+    check pr.path == @[CliBuiltinCompletionName, CliBuiltinCompletionZshName]
 
   test "boolean long option is recorded as presence":
     let m = cliMergeBuiltins(makeLeafSchema())
@@ -290,4 +304,69 @@ suite "cliParse":
   test "help output shows short aliases":
     let m = cliMergeBuiltins(makeLeafSchema())
     let rendered = cliHelpRender(m, @["run"])
-    check rendered.contains("-v, --verbose")
+    let cleanRendered = stripAnsi(rendered)
+    check cleanRendered.contains("--verbose, -v")
+
+  test "help output uses boxed sections and wraps descriptions":
+    let oldColumns = getEnv("COLUMNS")
+    putEnv("COLUMNS", "60")
+    defer:
+      if oldColumns.len == 0:
+        delEnv("COLUMNS")
+      else:
+        putEnv("COLUMNS", oldColumns)
+
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run the app with a command description that is intentionally long enough to wrap inside the commands box.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+        ),
+      ],
+      description: "Test app.",
+      name: "tapp",
+      options: @[
+        cliOptFlag(
+          "quiet",
+          "Quiet mode with a description long enough to wrap inside the options box for this layout test.",
+          'q',
+        ),
+      ],
+    )
+
+    let rendered = cliHelpRender(cliMergeBuiltins(s), @[])
+    let cleanRendered = stripAnsi(rendered)
+    let lines = rendered.splitLines()
+
+    var usageHeaderFound = false
+    var optionsHeaderFound = false
+    var commandsHeaderFound = false
+    for line in lines:
+      let cleanLine = stripAnsi(line)
+      if cleanLine.startsWith("╭") and cleanLine.contains("Usage"):
+        usageHeaderFound = true
+      if cleanLine.startsWith("╭") and cleanLine.contains("Options"):
+        optionsHeaderFound = true
+      if cleanLine.startsWith("╭") and cleanLine.contains("Commands"):
+        commandsHeaderFound = true
+
+    check usageHeaderFound
+    check optionsHeaderFound
+    check commandsHeaderFound
+    check cleanRendered.contains("[OPTIONS]")
+    check cleanRendered.contains("--help, -h")
+    check cleanRendered.contains("--quiet, -q")
+    check cleanRendered.contains("run")
+    check cleanRendered.contains("Run the app with a command description")
+
+    var quietLineIndex = -1
+    for i, line in lines:
+      if stripAnsi(line).contains("--quiet, -q"):
+        quietLineIndex = i
+        break
+
+    check quietLineIndex >= 0
+    check quietLineIndex + 1 < lines.len
+    check stripAnsi(lines[quietLineIndex + 1]).startsWith("│ ")
+    check lines[quietLineIndex + 1].contains("wrap inside the options box")

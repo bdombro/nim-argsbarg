@@ -52,7 +52,7 @@ proc cliSchemaValidate*(schema: CliSchema) {.raises: [ArgsbargSchemaDefect].} =
       for ch in cmd.commands:
         walk(ch)
     else:
-      if cmd.handler.isNone and cmd.name != CliBuiltinCompletionsZshName:
+      if cmd.handler.isNone:
         raise ArgsbargSchemaDefect.newException(
           "Leaf command requires handler: " & cmd.name)
       checkOptions(cmd.options, cmd.name)

@@ -1,6 +1,5 @@
-import std/[algorithm, os, strutils, tables]
+import std/[algorithm, strutils, tables]
 import schema
-import style
 
 ## One completion scope: command path, flags, children, and whether file completion applies.
 type ScopeRec = object
@@ -277,17 +276,17 @@ proc collectScopes(schema: CliSchema): seq[ScopeRec] =
 
 ## Builtin command definition merged into every consumer schema (handled in `cliRun`).
 proc completionZshBuiltinCommand*(): CliCommand =
+  proc noop(ctx: CliContext) {.nimcall.} =
+    discard
+
   cliGroup(
-    CliBuiltinCompletionsZshName,
-    "Install zsh tab completions to ~/.zsh/completions/_<appname>. To print the script to stdout, use --print.",
-    commands = @[],
-    options = @[
-      CliOption(
-        description: "Print the completion script to stdout instead of installing it.",
-        isPositional: false,
-        isRepeated: false,
-        kind: cliValueNone,
-        name: "print",
+    CliBuiltinCompletionName,
+    "Generate the autocompletion script for shells.",
+    commands = @[
+      cliLeaf(
+        CliBuiltinCompletionZshName,
+        "Generate the autocompletion script for zsh.",
+        noop,
       ),
     ],
   )
@@ -309,21 +308,6 @@ proc completionZshScript*(schema: CliSchema): string =
   result = "#compdef " & schema.name & "\n\n" & arrays & consume & consumeShort & matchc & sim & mainB
 
 
-## Installs or prints the zsh completion script for the active application.
+## Prints the zsh completion script to stdout.
 proc completionZshRun*(schema: CliSchema; ctx: CliContext) =
-  let script = completionZshScript(schema)
-  if ctx.optFlag("print"):
-    stdout.write(script)
-    return
-  let home = getEnv("HOME")
-  if home.len == 0:
-    stderr.writeLine styleRed("HOME is not set; cannot install completions.")
-    quit(1)
-  let dir = joinPath(home, ".zsh", "completions")
-  if not dirExists(dir):
-    stderr.writeLine styleYellow("WARNING: ") & styleDim(
-      "~/.zsh/completions does not exist. Create it and add to fpath in " &
-      "~/.zshrc, for example: fpath=(~/.zsh/completions $fpath); autoload -Uz compinit; compinit") & "\n"
-  createDir(dir)
-  let path = joinPath(dir, "_" & schema.name)
-  writeFile(path, script)
+  stdout.write(completionZshScript(schema))

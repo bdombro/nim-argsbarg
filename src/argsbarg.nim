@@ -1,5 +1,4 @@
 import argsbarg/[dispatch, errors, help, parse, schema, style, validate]
-from argsbarg/style import styleBold, styleCyan, styleDim, styleGreen, styleRed, styleYellow
 
 ## Public API surface re-exported for `import argsbarg` consumers.
 export errors.ArgsbargSchemaDefect
@@ -20,7 +19,8 @@ export schema
 export style
 
 ## Re-exports individual style wrappers for selective imports.
-export styleBold, styleCyan, styleDim, styleGreen, styleRed, styleYellow
+export style.styleAquaBold, style.styleBlue, style.styleBold, style.styleCyan, style.styleDim,
+  style.styleGreen, style.styleGreenBright, style.styleRed, style.styleYellow
 
 ## Re-exports schema and parse-result validation helpers.
 export validate.cliSchemaValidate, validate.cliValidate

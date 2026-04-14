@@ -1,7 +1,10 @@
 import std/[options, strutils, tables]
 
-## Name of the zsh completion install command injected for every application.
-const CliBuiltinCompletionsZshName* = "completions-zsh"
+## Name of the completion command injected for every application.
+const CliBuiltinCompletionName* = "completion"
+
+## Name of the zsh completion subcommand injected under `completion`.
+const CliBuiltinCompletionZshName* = "zsh"
 
 ## Long help flag token.
 const CliHelpLongFlag* = "--help"
@@ -66,7 +69,7 @@ type CliFallbackMode* = enum
   cliFallbackWhenMissing
   ## Same as ``cliFallbackWhenMissing``, and also: if the next word is not a known top-level
   ## command, behave as if ``fallbackCommand`` were written first. Use this for tools where users
-  ## often pass flags or paths before the verb. Real subcommand names (including ``completions-zsh``)
+  ## often pass flags or paths before the verb. Real subcommand names (including ``completion``)
   ## always win over the fallback.
   cliFallbackWhenMissingOrUnknown
   ## Never pick ``fallbackCommand`` on an empty invocation: root help still prints. If the first

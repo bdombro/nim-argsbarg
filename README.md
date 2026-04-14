@@ -44,9 +44,9 @@ when isMainModule:
 Every app gets two built-ins injected by `cliRun` for free:
 
 - `-h` / `--help` at any routing depth, scoped to the current node.
-- `completions-zsh` installs zsh completions, or prints the script with `--print`.
+- `completion zsh` installs zsh completions, or prints the script with `--print`.
 
-So yes, `completions-zsh` is already spoken for. Don't reuse that as a top-level command unless
+So yes, `completion` is already spoken for. Don't reuse that as a top-level command unless
 you enjoy arguing with validation errors.
 
 
@@ -119,7 +119,7 @@ behavior in the schema instead of maintaining a separate argv preprocessor.
 You set two optional fields on **`CliSchema`**:
 
 - **`fallbackCommand`**: a `some("name")` top-level command. The name must match a direct child of
-  `commands` (after `cliMergeBuiltins`, built-ins such as `completions-zsh` count as siblings).
+  `commands` (after `cliMergeBuiltins`, built-ins such as `completion` count as siblings).
 - **`fallbackMode`**: when that fallback is allowed to run. Three choices below.
 
 Only the **app root** uses this. Nested `cliGroup` nodes do not auto-pick a child when argv stops
@@ -130,7 +130,8 @@ help (unless the user passes `-h` / `--help`). The modes **`cliFallbackWhenMissi
 **`cliFallbackWhenUnknown`** require **`fallbackCommand`** to be set, or `cliSchemaValidate` raises.
 
 The examples below assume a toy app with top-level commands **`compress`** (the main job),
-**`list`**, plus the usual **`completions-zsh`**, and **`fallbackCommand: some("compress")`**.
+**`list`**, plus the usual **`completion`** (with subcommand `zsh`), and
+**`fallbackCommand: some("compress")`**.
 
 #### `cliFallbackWhenMissing` (default)
 
@@ -152,14 +153,14 @@ words to be errors (typos surface as “unknown command”).
 Same as **`cliFallbackWhenMissing`** for an empty command slot, **and**: if the next token is not a
 known top-level command, behave as if **`compress`** were written first. Declared root options are
 still parsed first; other leading flags can belong to **`compress`**. Real command names
-(including **`completions-zsh`**) still beat the fallback.
+(including **`completion zsh`**) still beat the fallback.
 
 ```bash
 mytool                         # → runs compress
 mytool -q 2 doc.pdf            # → runs compress with -q and doc.pdf (typical single-action CLI)
 mytool doc.pdf                 # → runs compress; doc.pdf is a positional for compress
 mytool list                    # → runs list
-mytool completions-zsh         # → built-in, not compress
+mytool completion zsh         # → built-in, not compress
 ```
 
 Pick this for **verb-optional** single-action tools (`pdf-compress`-style).
@@ -172,7 +173,7 @@ As soon as there is at least one token that is not a known top-level command, ro
 **`cliFallbackWhenMissingOrUnknown`**.
 
 ```bash
-mytool                         # → root help (lists compress, list, completions-zsh, …)
+mytool                         # → root help (lists compress, list, completion zsh, …)
 mytool doc.pdf                 # → runs compress on doc.pdf
 mytool -q 2 doc.pdf            # → runs compress with flags and file
 mytool list                    # → runs list
@@ -194,7 +195,7 @@ nim c -p:src examples/nim_minimal.nim
 ./examples/nim_minimal hello -n world
 ./examples/nim_minimal --name world
 ./examples/nim_minimal -h
-./examples/nim_minimal completions-zsh --print
+./examples/nim_minimal completion zsh --print
 ```
 
 ### `examples/nim_file.nim`
@@ -213,7 +214,7 @@ nim c -p:src examples/nim_file.nim
 ./examples/nim_file rm a.txt b.txt
 ./examples/nim_file read ./README.md
 ./examples/nim_file write ./out.txt --content hello
-./examples/nim_file completions-zsh --print > ./_nim_file
+./examples/nim_file completion zsh --print > ./_nim_file
 ```
 
 ## Schema reference
@@ -265,7 +266,7 @@ control.
 | `arguments` | `seq[CliOption]` | Default: `@[]` | Positional slots for a leaf command. Use `cliOptPositional` or set `isPositional: true` on each `CliOption`. |
 | `commands` | `seq[CliCommand]` | Default: `@[]` | Nested subcommands. If this has entries, the command is a routing node. |
 | `description` | `string` | Required | Human-readable description shown in help. |
-| `handler` | `Option[CliHandler]` | Required | Leaf: `some(yourProc)`. Routing node: `none(CliHandler)`. If argv stops on a routing node, argsbarg prints contextual help. The injected `completions-zsh` command is special-cased in validation and may also use `none`. |
+| `handler` | `Option[CliHandler]` | Required | Leaf: `some(yourProc)`. Routing node: `none(CliHandler)`. If argv stops on a routing node, argsbarg prints contextual help. |
 | `name` | `string` | Required | The token users type on the command line. |
 | `options` | `seq[CliOption]` | Default: `@[]` | Flags scoped to this command. |
 
@@ -338,7 +339,7 @@ Enum for `CliSchema.fallbackMode`. See **Root command fallback** above for full 
 
 | Field | Type | Required / Default | Notes |
 | --- | --- | --- | --- |
-| `commands` | `seq[CliCommand]` | Required | Top-level commands (from `cliLeaf` / `cliGroup` or `CliCommand(...)`). `cliMergeBuiltins` appends `completions-zsh` here, so don't steal that name. |
+| `commands` | `seq[CliCommand]` | Required | Top-level commands (from `cliLeaf` / `cliGroup` or `CliCommand(...)`). `cliMergeBuiltins` appends `completion` here, so don't steal that name. |
 | `description` | `string` | Required | One-liner shown in root help. |
 | `fallbackCommand` | `Option[string]` | Default: `none(string)` | Top-level command name used when fallback applies. Must exist in `commands`; validated. |
 | `fallbackMode` | `CliFallbackMode` | Default: `cliFallbackWhenMissing` | When `fallbackCommand` applies; includes `cliFallbackWhenUnknown` (empty → root help, unknown token → fallback). |
@@ -357,7 +358,7 @@ Enum for `CliSchema.fallbackMode`. See **Root command fallback** above for full 
 
 ## Zsh completions
 
-Run `<app> completions-zsh` to install the script to `~/.zsh/completions/_{appname}`, or pass
+Run `<app> completion zsh` to install the script to `~/.zsh/completions/_{appname}`, or pass
 `--print` to write it to stdout instead. If the completions directory doesn't exist yet, you'll
 get a warning with the exact `fpath` setup instructions. argsbarg does not quietly jam files into
 a directory zsh is not using and call that success.
