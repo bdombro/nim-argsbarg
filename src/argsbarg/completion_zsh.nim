@@ -206,15 +206,14 @@ proc emitScopeArrays(ident: string; scopes: seq[ScopeRec]): string =
 ## Emits `_nac_simulate` which walks `words` to determine the active completion scope id.
 proc emitSimulate(ident: string): string =
   result = "_" & ident & "_nac_simulate() {\n" &
-    "  local i=2 sid=0\n" &
+    "  local i=2 sid=0 w steps next\n" &
     "  while (( i < CURRENT )); do\n" &
-    "    local w=$words[i]\n" &
+    "    w=$words[i]\n" &
     "    if [[ $w == " & CliHelpShortFlag & " || $w == " & CliHelpLongFlag &
     " ]]; then\n" &
     "      ((i++)); continue\n" &
     "    fi\n" &
     "    if [[ $w == --* ]]; then\n" &
-    "      local steps\n" &
     "      steps=$(_" & ident & "_nac_consume_long \"$sid\" \"$w\" \"${words[i+1]}\")\n" &
     "      case $steps in\n" &
     "        0) break ;;\n" &
@@ -225,7 +224,6 @@ proc emitSimulate(ident: string): string =
     "      continue\n" &
     "    fi\n" &
     "    if [[ $w == -* ]]; then\n" &
-    "      local steps\n" &
     "      steps=$(_" & ident & "_nac_consume_short \"$sid\" \"$w\")\n" &
     "      case $steps in\n" &
     "        0) break ;;\n" &
@@ -235,7 +233,6 @@ proc emitSimulate(ident: string): string =
     "      esac\n" &
     "      continue\n" &
     "    fi\n" &
-    "    local next\n" &
     "    next=$(_" & ident & "_nac_match_child \"$sid\" \"$w\") || break\n" &
     "    sid=$next\n" &
     "    ((i++))\n" &

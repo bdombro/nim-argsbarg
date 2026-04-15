@@ -97,3 +97,34 @@ suite "completionZshScript":
     let (output, exitCode) = execCmdEx("zsh -fc " & inner.quoteShell)
     check exitCode == 0
     check output.strip == "1"
+
+  test "simulate produces no stdout output across multiple words":
+    proc leaf(ctx: CliContext) {.nimcall.} = discard
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "hello",
+          "Leaf.",
+          leaf,
+          options = @[cliOptFlag("verbose", "Verbose.", 'v')],
+        ),
+      ],
+      description: "Simulate leak regression app.",
+      name: "tapp_sim1",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let script = completionZshScript(m)
+    check not script.contains("local w\n")
+    check not script.contains("local steps\n")
+    check not script.contains("local next\n")
+    check script.contains("local i=2 sid=0 w steps next\n")
+    let path = getTempDir() / "argsbarg_t_completion_simulate.zsh"
+    writeFile(path, script)
+    let inner =
+      "source " & path.quoteShell &
+      " 2>/dev/null; words=(tapp_sim1 hello ''); CURRENT=3;" &
+      " out=$(_tapp_sim1_nac_simulate); echo \"leaked=[$out]\""
+    let (output, exitCode) = execCmdEx("zsh -fc " & inner.quoteShell)
+    check exitCode == 0
+    check output.strip == "leaked=[]"
