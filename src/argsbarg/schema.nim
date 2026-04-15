@@ -1,5 +1,8 @@
 import std/[options, strutils, tables]
 
+## Name of the bash completion subcommand injected under `completion`.
+const CliBuiltinCompletionBashName* = "bash"
+
 ## Name of the completion command injected for every application.
 const CliBuiltinCompletionName* = "completion"
 

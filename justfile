@@ -17,6 +17,7 @@ build:
 test:
     {{nim}} c -r --hints:off {{src_path}} tests/t_parse.nim
     {{nim}} c -r --hints:off {{src_path}} tests/t_completion.nim
+    {{nim}} c -r --hints:off {{src_path}} tests/t_completion_bash.nim
 
 # Build and run the nim_file example; pass extra CLI args after the recipe name.
 run-example-file *args:
@@ -38,6 +39,8 @@ smoke-file:
     ./examples/nim_file stat owner -h >/dev/null
     ./examples/nim_file completion zsh > /tmp/argsbarg_smoke_file.zsh
     zsh -n /tmp/argsbarg_smoke_file.zsh
+    ./examples/nim_file completion bash > /tmp/argsbarg_smoke_file.bash
+    bash -n /tmp/argsbarg_smoke_file.bash
 
 # Build nim_minimal and run hello, help, and zsh completion syntax checks.
 smoke-minimal:
@@ -47,13 +50,19 @@ smoke-minimal:
     ./examples/nim_minimal -h >/dev/null
     ./examples/nim_minimal completion zsh > /tmp/argsbarg_smoke_minimal.zsh
     zsh -n /tmp/argsbarg_smoke_minimal.zsh
+    ./examples/nim_minimal completion bash > /tmp/argsbarg_smoke_minimal.bash
+    bash -n /tmp/argsbarg_smoke_minimal.bash
 
-# Full pre-release pass: build, tests, and zsh -n on generated completion scripts.
+# Full pre-release pass: build, tests, and shell syntax on generated completion scripts.
 release-check: build test
     ./examples/nim_file completion zsh > /tmp/argsbarg_release_file.zsh
     zsh -n /tmp/argsbarg_release_file.zsh
+    ./examples/nim_file completion bash > /tmp/argsbarg_release_file.bash
+    bash -n /tmp/argsbarg_release_file.bash
     ./examples/nim_minimal completion zsh > /tmp/argsbarg_release_minimal.zsh
     zsh -n /tmp/argsbarg_release_minimal.zsh
+    ./examples/nim_minimal completion bash > /tmp/argsbarg_release_minimal.bash
+    bash -n /tmp/argsbarg_release_minimal.bash
 
 # Bump SemVer in argsbarg.nimble, release-check, commit, tag vX.Y.Z, push. Arg: major | minor | patch.
 release bump:

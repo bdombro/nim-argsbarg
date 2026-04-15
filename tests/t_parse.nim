@@ -152,6 +152,26 @@ suite "cliParse":
     check pr.kind == cliParseOk
     check pr.path == @["other"]
 
+  test "cliFallbackWhenMissingOrUnknown still dispatches completion bash":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run the app.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+        ),
+      ],
+      description: "Test app.",
+      fallbackCommand: some("run"),
+      fallbackMode: cliFallbackWhenMissingOrUnknown,
+      name: "tappImplicitBash",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let pr = cliParse(m, @[CliBuiltinCompletionName, CliBuiltinCompletionBashName])
+    check pr.kind == cliParseOk
+    check pr.path == @[CliBuiltinCompletionName, CliBuiltinCompletionBashName]
+
   test "cliFallbackWhenMissingOrUnknown still dispatches completion zsh":
     let s = CliSchema(
       commands: @[
@@ -254,6 +274,26 @@ suite "cliParse":
     check pr.kind == cliParseOk
     check pr.path == @["read"]
     check pr.args == @["secret.txt"]
+
+  test "cliFallbackWhenUnknown still dispatches completion bash":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run the app.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+        ),
+      ],
+      description: "Test app.",
+      fallbackCommand: some("run"),
+      fallbackMode: cliFallbackWhenUnknown,
+      name: "tappUnknownBash",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let pr = cliParse(m, @[CliBuiltinCompletionName, CliBuiltinCompletionBashName])
+    check pr.kind == cliParseOk
+    check pr.path == @[CliBuiltinCompletionName, CliBuiltinCompletionBashName]
 
   test "cliFallbackWhenUnknown still dispatches completion zsh":
     let s = CliSchema(

@@ -1,4 +1,5 @@
 import std/options
+import completion_bash
 import completion_zsh
 import errors
 import help
@@ -35,7 +36,14 @@ proc cliMergeBuiltins*(schema: CliSchema): CliSchema =
       raise ArgsbargSchemaDefect.newException(
         "Reserved command name: " & CliBuiltinCompletionName)
   result = schema
-  result.commands.add completionZshBuiltinCommand()
+  result.commands.add cliGroup(
+    CliBuiltinCompletionName,
+    "Generate the autocompletion script for shells.",
+    commands = @[
+      completionBashBuiltinCommand(),
+      completionZshBuiltinLeaf(),
+    ],
+  )
 
 
 ## Parses argv, prints help or errors with default styling, and dispatches handlers.
@@ -52,6 +60,15 @@ proc cliRun*(schema: CliSchema; argv: seq[string]) =
     stderr.writeLine(styleRed(pr.msg))
     quit(1)
   of cliParseOk:
+    if pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and pr.path[1] == CliBuiltinCompletionBashName:
+      let ctx = CliContext(
+        appName: merged.name,
+        args: pr.args,
+        command: pr.path,
+        opts: pr.opts,
+      )
+      completionBashRun(merged, ctx)
+      return
     if pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and pr.path[1] == CliBuiltinCompletionZshName:
       let ctx = CliContext(
         appName: merged.name,

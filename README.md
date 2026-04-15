@@ -44,7 +44,8 @@ when isMainModule:
 Every app gets two built-ins injected by `cliRun` for free:
 
 - `-h` / `--help` at any routing depth, scoped to the current node.
-- `completion zsh` installs zsh completions, or prints the script with `--print`.
+- `completion zsh` / `completion bash` print a completion script to stdout (zsh: see also
+  `--print` / install flow in the shell completions section below).
 
 So yes, `completion` is already spoken for. Don't reuse that as a top-level command unless
 you enjoy arguing with validation errors.
@@ -153,14 +154,15 @@ words to be errors (typos surface as “unknown command”).
 Same as **`cliFallbackWhenMissing`** for an empty command slot, **and**: if the next token is not a
 known top-level command, behave as if **`compress`** were written first. Declared root options are
 still parsed first; other leading flags can belong to **`compress`**. Real command names
-(including **`completion zsh`**) still beat the fallback.
+(including **`completion bash`** / **`completion zsh`**) still beat the fallback.
 
 ```bash
 mytool                         # → runs compress
 mytool -q 2 doc.pdf            # → runs compress with -q and doc.pdf (typical single-action CLI)
 mytool doc.pdf                 # → runs compress; doc.pdf is a positional for compress
 mytool list                    # → runs list
-mytool completion zsh         # → built-in, not compress
+mytool completion bash       # → built-in, not compress
+mytool completion zsh        # → built-in, not compress
 ```
 
 Pick this for **verb-optional** single-action tools (`pdf-compress`-style).
@@ -173,7 +175,7 @@ As soon as there is at least one token that is not a known top-level command, ro
 **`cliFallbackWhenMissingOrUnknown`**.
 
 ```bash
-mytool                         # → root help (lists compress, list, completion zsh, …)
+mytool                         # → root help (lists compress, list, completion bash|zsh, …)
 mytool doc.pdf                 # → runs compress on doc.pdf
 mytool -q 2 doc.pdf            # → runs compress with flags and file
 mytool list                    # → runs list
@@ -196,6 +198,7 @@ nim c -p:src examples/nim_minimal.nim
 ./examples/nim_minimal --name world
 ./examples/nim_minimal -h
 ./examples/nim_minimal completion zsh --print
+./examples/nim_minimal completion bash > /tmp/_nim_minimal.bash && bash -n /tmp/_nim_minimal.bash
 ```
 
 ### `examples/nim_file.nim`
@@ -215,6 +218,7 @@ nim c -p:src examples/nim_file.nim
 ./examples/nim_file read ./README.md
 ./examples/nim_file write ./out.txt --content hello
 ./examples/nim_file completion zsh --print > ./_nim_file
+./examples/nim_file completion bash > ./_nim_file.bash && bash -n ./_nim_file.bash
 ```
 
 ## Schema reference
@@ -356,15 +360,19 @@ Enum for `CliSchema.fallbackMode`. See **Root command fallback** above for full 
 | `cliValueNumber` | Takes a value and validates it as a float after parsing. |
 | `cliValueString` | Takes a string value. |
 
-## Zsh completions
+## Shell completions
 
-Run `<app> completion zsh` to install the script to `~/.zsh/completions/_{appname}`, or pass
+**Zsh:** run `<app> completion zsh` to install the script to `~/.zsh/completions/_{appname}`, or pass
 `--print` to write it to stdout instead. If the completions directory doesn't exist yet, you'll
 get a warning with the exact `fpath` setup instructions. argsbarg does not quietly jam files into
 a directory zsh is not using and call that success.
 
-The generated script covers commands, subcommands, long options, and short aliases. Leaf commands
-with positional arguments fall back to `_files`, so file path completion just works.
+**Bash:** run `<app> completion bash` and save stdout to a file you `source` from `~/.bashrc` or drop
+under `bash_completion.d` (whatever your distro expects). `bash -n` on the generated file should
+pass cleanly.
+
+Both generators cover commands, subcommands, long options, and short aliases. Leaf commands with
+positional arguments use file-path completion (`_files` on zsh, `compgen -f` on bash).
 
 ## Project tasks
 
@@ -374,7 +382,7 @@ with positional arguments fall back to `_files`, so file path completion just wo
 - **`just smoke-minimal`** — Build and run focused checks for `nim_minimal`.
 - **`just run-example-file ARGS...`** — Build and run `nim_file` with your args.
 - **`just run-example-minimal ARGS...`** — Build and run `nim_minimal` with your args.
-- **`just release-check`** — Full build, tests, and zsh syntax checks on generated scripts.
+- **`just release-check`** — Full build, tests, and `zsh -n` / `bash -n` on generated completion scripts.
 
 ## License
 
