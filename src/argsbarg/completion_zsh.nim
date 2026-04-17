@@ -1,65 +1,6 @@
 import std/[algorithm, strutils, tables]
+import completion_shared
 import schema
-
-## One completion scope: command path, flags, children, and whether file completion applies.
-type ScopeRec = object
-  kids: seq[CliCommand]
-  opts: seq[CliOption]
-  path: string
-  wantsFiles: bool
-
-
-## Escapes a value for safe embedding inside single-quoted zsh words.
-proc escZsh(s: string): string =
-  result = s.replace("'", "'\\''")
-  result = result.replace("\n", " ")
-
-
-## Returns whether `cmd` declares any positional arguments.
-proc hasPositionalArguments(cmd: CliCommand): bool =
-  for a in cmd.arguments:
-    if a.isPositional:
-      return true
-  false
-
-
-## Maps an application name to a shell-safe identifier token for generated functions.
-proc identToken(s: string): string =
-  for ch in s:
-    result.add(if ch.isAlphaNumeric: ch else: '_')
-
-
-## Emits the `_nac_consume_long` helper that classifies `--flag` argv tokens per scope.
-## Prints a single digit to stdout (0 unknown, 1 one word, 2 option plus separate value word)
-## for capture by `_nac_simulate`; exits zero after printing.
-proc emitConsumeLong(ident: string; scopes: seq[ScopeRec]): string =
-  var lines: seq[string] = @[]
-  lines.add "_" & ident & "_nac_consume_long() {"
-  lines.add "  local sid=\"$1\" w=\"$2\" nw=\"$3\""
-  lines.add "  case $sid in"
-  for i, sc in scopes:
-    lines.add "    " & $i & ")"
-    lines.add "      case $w in"
-    lines.add "        " & CliHelpLongFlag & "|" & CliHelpLongFlag &
-      "=*|" & CliHelpShortFlag & ") echo 1 ;;"
-    for o in sc.opts:
-      if o.isPositional:
-        continue
-      let base = "--" & o.name
-      case o.kind
-      of cliValueNone:
-        lines.add "        " & base & "|" & base & "=*) echo 1 ;;"
-      of cliValueNumber, cliValueString:
-        lines.add "        " & base & "=*) echo 1 ;;"
-        lines.add "        " & base & ") echo 2 ;;"
-    lines.add "        *) echo 0 ;;"
-    lines.add "      esac"
-    lines.add "      ;;"
-  lines.add "    *) echo 0 ;;"
-  lines.add "  esac"
-  lines.add "}"
-  result = lines.join("\n") & "\n"
-
 
 ## Emits `_nac_consume_short` which classifies short option argv tokens per scope.
 ## Prints a single digit to stdout (0 unknown, 1 one word, 2 valued flag needs next word)
@@ -169,15 +110,15 @@ proc emitScopeArrays(ident: string; scopes: seq[ScopeRec]): string =
     var sortedKids = sc.kids
     sortedKids.sort(proc(a, b: CliCommand): int = cmp(a.name, b.name))
     for c in sortedKids:
-      cmdParts.add "'" & escZsh(c.name) & ":" & escZsh(c.description) & "'"
+      cmdParts.add "'" & escShellSingleQuoted(c.name) & ":" & escShellSingleQuoted(c.description) & "'"
     lines.add "typeset -g -a A_" & ident & "_" & $i & "_cmds"
     if cmdParts.len == 0:
       lines.add "A_" & ident & "_" & $i & "_cmds=()"
     else:
       lines.add "A_" & ident & "_" & $i & "_cmds=(" & cmdParts.join(" ") & ")"
     var optParts: seq[string] = @[]
-    optParts.add "'" & escZsh(CliHelpLongFlag) & ":" & escZsh("Show help for this command.") & "'"
-    optParts.add "'" & escZsh(CliHelpShortFlag) & ":" & escZsh("Show help for this command.") & "'"
+    optParts.add "'" & escShellSingleQuoted(CliHelpLongFlag) & ":" & escShellSingleQuoted("Show help for this command.") & "'"
+    optParts.add "'" & escShellSingleQuoted(CliHelpShortFlag) & ":" & escShellSingleQuoted("Show help for this command.") & "'"
     var sortedOpts = sc.opts
     sortedOpts.sort(proc(a, b: CliOption): int = cmp(a.name, b.name))
     for o in sortedOpts:
@@ -186,14 +127,14 @@ proc emitScopeArrays(ident: string; scopes: seq[ScopeRec]): string =
       let lab =
         case o.kind
         of cliValueNone:
-          escZsh("--" & o.name)
+          escShellSingleQuoted("--" & o.name)
         of cliValueNumber:
-          escZsh("--" & o.name & "=<number>")
+          escShellSingleQuoted("--" & o.name & "=<number>")
         of cliValueString:
-          escZsh("--" & o.name & "=<string>")
-      optParts.add "'" & lab & ":" & escZsh(o.description) & "'"
+          escShellSingleQuoted("--" & o.name & "=<string>")
+      optParts.add "'" & lab & ":" & escShellSingleQuoted(o.description) & "'"
       if o.shortName != CliNoShortName:
-        optParts.add "'" & escZsh("-" & $o.shortName) & ":" & escZsh(o.description) & "'"
+        optParts.add "'" & escShellSingleQuoted("-" & $o.shortName) & ":" & escShellSingleQuoted(o.description) & "'"
     lines.add "typeset -g -a A_" & ident & "_" & $i & "_opts"
     lines.add "A_" & ident & "_" & $i & "_opts=(" & optParts.join(" ") & ")"
     lines.add "typeset -g A_" & ident & "_" & $i & "_leaf=" &
@@ -241,37 +182,6 @@ proc emitSimulate(ident: string): string =
     "}\n"
 
 
-## Flattens the schema into a breadth-first list of completion scopes.
-proc collectScopes(schema: CliSchema): seq[ScopeRec] =
-  var acc: seq[ScopeRec] = @[]
-  acc.add ScopeRec(
-    kids: schema.commands,
-    opts: schema.options,
-    path: "",
-    wantsFiles: false,
-  )
-
-  ## Appends scopes for `cmd` and recursively descends into its subcommands.
-  proc walk(cmdPath: string; cmd: CliCommand) =
-    acc.add ScopeRec(
-      kids: cmd.commands,
-      opts: cmd.options,
-      path: cmdPath,
-      wantsFiles: hasPositionalArguments(cmd),
-    )
-    for ch in cmd.commands:
-      let nextPath =
-        if cmdPath.len == 0:
-          ch.name
-        else:
-          cmdPath & "/" & ch.name
-      walk(nextPath, ch)
-
-  for c in schema.commands:
-    walk(c.name, c)
-  result = acc
-
-
 ## Builtin `completion zsh` leaf merged into every consumer schema (handled in `cliRun`).
 proc completionZshBuiltinLeaf*(): CliCommand =
   proc noop(ctx: CliContext) {.nimcall.} =
@@ -281,6 +191,19 @@ proc completionZshBuiltinLeaf*(): CliCommand =
     CliBuiltinCompletionZshName,
     "Generate the autocompletion script for zsh.",
     noop,
+    notes =
+      "Writes the completion script to stdout. Two ways to activate it:\n" &
+      "\n" &
+      "fpath install (persistent, recommended):\n" &
+      "  {app} completion zsh > ~/.zsh/completions/_{app}\n" &
+      "  # In ~/.zshrc, before compinit:\n" &
+      "  #   fpath=(~/.zsh/completions $fpath)\n" &
+      "  #   autoload -Uz compinit && compinit\n" &
+      "  exec zsh\n" &
+      "\n" &
+      "eval (reloads on every shell start):\n" &
+      "  echo 'eval \"$({app} completion zsh)\"' >> ~/.zshrc\n" &
+      "  source ~/.zshrc",
   )
 
 

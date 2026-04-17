@@ -1,4 +1,4 @@
-import std/options
+import std/[options, syncio]
 import completion_bash
 import completion_zsh
 import errors
@@ -8,12 +8,15 @@ import schema
 import style
 import validate
 
-## Looks up an immediate child command by name within `cmds`.
-proc findChild(cmds: seq[CliCommand]; name: string): Option[CliCommand] =
-  for c in cmds:
-    if c.name == name:
-      return some(c)
-  none(CliCommand)
+## Builds the runtime context passed to command handlers and completion runners.
+proc contextFor(merged: CliSchema; pr: CliParseResult): CliContext =
+  CliContext(
+    appName: merged.name,
+    args: pr.args,
+    command: pr.path,
+    opts: pr.opts,
+    schema: merged,
+  )
 
 
 ## Resolves the deepest command along `path` in `merged`, if every segment exists.
@@ -27,6 +30,26 @@ proc findLeaf(merged: CliSchema; path: seq[string]): Option[CliCommand] =
     cur = ch
     cmds = ch.get.commands
   cur
+
+
+## True when `pr` targets the injected `completion bash` leaf.
+proc isBuiltinCompletionBash(pr: CliParseResult): bool {.inline.} =
+  pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and
+    pr.path[1] == CliBuiltinCompletionBashName
+
+
+## True when `pr` targets the injected `completion zsh` leaf.
+proc isBuiltinCompletionZsh(pr: CliParseResult): bool {.inline.} =
+  pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and
+    pr.path[1] == CliBuiltinCompletionZshName
+
+
+## Prints ``msg`` in red, then the full help for ``helpPath``, then exits with status 1.
+## Call from handlers when user input is invalid: pass ``ctx.schema`` and ``ctx.command``.
+proc cliErrWithHelp*(schema: CliSchema; helpPath: seq[string]; msg: string) {.noreturn.} =
+  stderr.writeLine(styleRed(msg))
+  stderr.write(cliHelpRender(schema, helpPath))
+  quit(1)
 
 
 ## Returns a merged schema including framework built-ins such as `completion zsh`.
@@ -55,28 +78,17 @@ proc cliRun*(schema: CliSchema; argv: seq[string]) =
   case pr.kind
   of cliParseHelp:
     stdout.write(cliHelpRender(merged, pr.helpPath))
-    quit(0)
+    quit(if pr.helpExplicit: 0 else: 1)
   of cliParseError:
     stderr.writeLine(styleRed(pr.msg))
+    stderr.write(cliHelpRender(merged, pr.errorHelpPath))
     quit(1)
   of cliParseOk:
-    if pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and pr.path[1] == CliBuiltinCompletionBashName:
-      let ctx = CliContext(
-        appName: merged.name,
-        args: pr.args,
-        command: pr.path,
-        opts: pr.opts,
-      )
-      completionBashRun(merged, ctx)
+    if isBuiltinCompletionBash(pr):
+      completionBashRun(merged, contextFor(merged, pr))
       return
-    if pr.path.len == 2 and pr.path[0] == CliBuiltinCompletionName and pr.path[1] == CliBuiltinCompletionZshName:
-      let ctx = CliContext(
-        appName: merged.name,
-        args: pr.args,
-        command: pr.path,
-        opts: pr.opts,
-      )
-      completionZshRun(merged, ctx)
+    if isBuiltinCompletionZsh(pr):
+      completionZshRun(merged, contextFor(merged, pr))
       return
     let leafOpt = findLeaf(merged, pr.path)
     if leafOpt.isNone:
@@ -86,10 +98,4 @@ proc cliRun*(schema: CliSchema; argv: seq[string]) =
     if leaf.handler.isNone:
       stderr.writeLine(styleRed("Internal dispatch error: missing handler."))
       quit(1)
-    let ctx = CliContext(
-      appName: merged.name,
-      args: pr.args,
-      command: pr.path,
-      opts: pr.opts,
-    )
-    leaf.handler.get()(ctx)
+    leaf.handler.get()(contextFor(merged, pr))

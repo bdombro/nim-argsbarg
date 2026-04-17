@@ -1,25 +1,15 @@
 import std/[os, options]
 import argsbarg
 
-## Non-zero exit status for handler validation failures.
-const cliExitErr = 1
-
 ## Prints a yellow notice that `path` was not found on disk.
 proc missingPathLine(path: string) =
   echo styleYellow("missing: ") & path
 
-## Prints `msg` to stderr and exits with `cliExitErr`.
-proc quitErr(msg: string) =
-  stderr.writeLine styleRed(msg)
-  quit(cliExitErr)
-
 ## Prints file contents for the path in `ctx.args`.
 proc readHandler(ctx: CliContext) =
-  if ctx.args.len == 0:
-    quitErr("read: missing path")
   let path = ctx.args[0]
   if not fileExists(path):
-    quitErr("read: not found: " & path)
+    cliErrWithHelp(ctx.schema, ctx.command, "read: not found: " & path)
   stdout.write readFile(path)
 
 ## Removes each path listed in `ctx.args`.
@@ -55,8 +45,6 @@ proc touchHandler(ctx: CliContext) =
 
 ## Writes `content` to the first path in `ctx.args`.
 proc writeHandler(ctx: CliContext) =
-  if ctx.args.len == 0:
-    quitErr("write: missing path")
   let path = ctx.args[0]
   let content = ctx.optString("content").get("")
   writeFile(path, content)
@@ -74,7 +62,7 @@ when isMainModule:
           "Print file contents.",
           readHandler,
           arguments = @[
-            cliOptPositional("path", "File to read."),
+            cliArg("path", "File to read."),
           ],
         ),
         cliGroup(
@@ -90,11 +78,7 @@ when isMainModule:
                   "Look up owner details for the selected files.",
                   statOwnerLookupHandler,
                   arguments = @[
-                    cliOptPositional(
-                      "files",
-                      "One or more file paths.",
-                      isRepeated = true,
-                    ),
+                    cliArgList("files", "One or more file paths.", min = 1),
                   ],
                   options = @[
                     cliOptString("user-name", "Filter by an explicit user name."),
@@ -115,7 +99,7 @@ when isMainModule:
           "Create or update file timestamps.",
           touchHandler,
           arguments = @[
-            cliOptPositional("paths", "Paths to touch.", isRepeated = true),
+            cliArgList("paths", "Paths to touch.", min = 1),
           ],
         ),
         cliLeaf(
@@ -123,7 +107,7 @@ when isMainModule:
           "Write content to a file.",
           writeHandler,
           arguments = @[
-            cliOptPositional("path", "File to write."),
+            cliArg("path", "File to write."),
           ],
           options = @[
             cliOptString("content", "Content to write."),

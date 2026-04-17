@@ -45,6 +45,8 @@ proc helpWidth(): int =
 
 
 ## Wraps prose into lines that fit within the requested width.
+## Uses UTF-8 byte length for line breaks (not ``visibleWidth``); fine for typical ASCII help text;
+## wide or combining characters in descriptions may wrap earlier or later than the boxed layout.
 proc wrapText(text: string; width: int): seq[string] =
   let available = max(1, width)
   let normalized = text.strip
@@ -87,16 +89,17 @@ proc optKindLabel(k: CliValueKind): string =
 
 ## Builds a help-table label for an option or positional argument.
 proc optionLabel(o: CliOption): string =
+  if o.isPositional:
+    if o.argMax == 1:
+      result = if o.argMin == 0: "[" & o.name & "]" else: "<" & o.name & ">"
+    else:
+      result = if o.argMin == 0: "[" & o.name & "...]" else: "<" & o.name & "...>"
+    return
   let kind = optKindLabel(o.kind)
   let kindPart = if kind.len == 0: "" else: " " & kind
-  if o.isPositional:
-    result = o.name & kindPart
-    if o.isRepeated:
-      result.add "..."
-  else:
-    result = "--" & o.name & kindPart
-    if o.shortName != CliNoShortName:
-      result.add ", -" & $o.shortName
+  result = "--" & o.name & kindPart
+  if o.shortName != CliNoShortName:
+    result.add ", -" & $o.shortName
 
 
 ## Styles an option label with aqua+bold for long option and neon green for short option.
@@ -155,7 +158,7 @@ proc rowsForSubcommands(cmds: seq[CliCommand]): seq[HelpRow] =
 
 
 ## Builds a section box with a title and plain body lines.
-proc renderTextBox(title: string; lines: seq[string]): seq[string] =
+proc renderTextBox(title: string; lines: seq[string]; hw: int): seq[string] =
   if lines.len == 0:
     return @[]
 
@@ -163,6 +166,8 @@ proc renderTextBox(title: string; lines: seq[string]): seq[string] =
   var contentWidth = visibleWidth(titleLead) + 1
   for line in lines:
     contentWidth = max(contentWidth, visibleWidth(line))
+  contentWidth = max(hw - 2, contentWidth)
+  contentWidth = min(contentWidth, hw - 4)
 
   let borderWidth = contentWidth + 2
   let headerFill = max(1, borderWidth - visibleWidth(titleLead))
@@ -173,7 +178,7 @@ proc renderTextBox(title: string; lines: seq[string]): seq[string] =
 
 
 ## Builds a section box with a label/description table.
-proc renderTableBox(title: string; rows: seq[HelpRow]): seq[string] =
+proc renderTableBox(title: string; rows: seq[HelpRow]; hw: int): seq[string] =
   if rows.len == 0:
     return @[]
 
@@ -182,7 +187,7 @@ proc renderTableBox(title: string; rows: seq[HelpRow]): seq[string] =
     labelWidth = max(labelWidth, visibleWidth(row.label))
 
   let minimumContentWidth = max(visibleWidth("─ " & title & " ") + 1, labelWidth + 2 + 18)
-  var contentWidth = max(helpWidth() - 2, minimumContentWidth)
+  var contentWidth = max(hw - 2, minimumContentWidth)
   let descWidth = max(1, contentWidth - labelWidth - 2)
 
   var bodyLines: seq[string] = @[]
@@ -199,7 +204,7 @@ proc renderTableBox(title: string; rows: seq[HelpRow]): seq[string] =
   contentWidth = max(contentWidth, visibleWidth(titleLead) + 1)
   for line in bodyLines:
     contentWidth = max(contentWidth, visibleWidth(line))
-  contentWidth = min(contentWidth, helpWidth() - 4)
+  contentWidth = min(contentWidth, hw - 4)
 
   let borderWidth = contentWidth + 2
   let headerFill = max(1, borderWidth - visibleWidth(titleLead))
@@ -210,26 +215,21 @@ proc renderTableBox(title: string; rows: seq[HelpRow]): seq[string] =
 
 ## Renders help text for the given path using the merged schema.
 proc cliHelpRender*(schema: CliSchema; helpPath: seq[string]): string =
-  ## Resolves a direct child command by name from `cmds`.
-  proc findChild(cmds: seq[CliCommand]; name: string): Option[CliCommand] =
-    for c in cmds:
-      if c.name == name:
-        return some(c)
-    none(CliCommand)
+  let hw = helpWidth()
   if helpPath.len == 0:
     var lines: seq[string] = @[]
     lines.add ""
     if schema.description.len > 0:
       lines.add styleWhite(schema.description)
       lines.add ""
-    lines.add renderTextBox("Usage", usageLines(schema.name, helpPath, schema.commands.len > 0, false)).join("\n")
-    let optionBox = renderTableBox("Options", rowsForOptions(schema.options))
+    lines.add renderTextBox("Usage", usageLines(schema.name, helpPath, schema.commands.len > 0, false), hw).join("\n")
+    let optionBox = renderTableBox("Options", rowsForOptions(schema.options), hw)
     if optionBox.len > 0:
       lines.add ""
       lines.add optionBox.join("\n")
     if schema.commands.len > 0:
       lines.add ""
-      lines.add renderTableBox("Commands", rowsForSubcommands(schema.commands)).join("\n")
+      lines.add renderTableBox("Commands", rowsForSubcommands(schema.commands), hw).join("\n")
     return lines.join("\n") & "\n\n"
 
   var cmds = schema.commands
@@ -243,21 +243,29 @@ proc cliHelpRender*(schema: CliSchema; helpPath: seq[string]): string =
 
   var lines: seq[string] = @[]
   lines.add ""
-  lines.add renderTextBox("Usage", usageLines(schema.name, helpPath, node.commands.len > 0, node.arguments.len > 0)).join("\n")
+  if node.description.len > 0:
+    lines.add styleWhite(node.description)
+    lines.add ""
+  lines.add renderTextBox("Usage", usageLines(schema.name, helpPath, node.commands.len > 0, node.arguments.len > 0), hw).join("\n")
 
-  let optionBox = renderTableBox("Options", rowsForOptions(node.options))
+  let optionBox = renderTableBox("Options", rowsForOptions(node.options), hw)
   if optionBox.len > 0:
     lines.add ""
     lines.add optionBox.join("\n")
 
-  let positionalBox = renderTableBox("Arguments", rowsForPositionals(node.arguments))
+  let positionalBox = renderTableBox("Arguments", rowsForPositionals(node.arguments), hw)
   if positionalBox.len > 0:
     lines.add ""
     lines.add positionalBox.join("\n")
 
-  let subcommandBox = renderTableBox("Subcommands", rowsForSubcommands(node.commands))
+  let subcommandBox = renderTableBox("Subcommands", rowsForSubcommands(node.commands), hw)
   if subcommandBox.len > 0:
     lines.add ""
     lines.add subcommandBox.join("\n")
+
+  if node.notes.len > 0:
+    let resolved = node.notes.replace("{app}", schema.name)
+    lines.add ""
+    lines.add renderTextBox("Notes", wrapText(resolved, hw - 4), hw).join("\n")
 
   lines.join("\n") & "\n\n"

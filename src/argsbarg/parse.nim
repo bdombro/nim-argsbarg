@@ -7,22 +7,6 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
   var path: seq[string] = @[]
   var opts = initTable[string, string]()
 
-  ## Resolves a direct child command by name from `cmds`.
-  proc findChild(cmds: seq[CliCommand]; name: string): Option[CliCommand] =
-    for c in cmds:
-      if c.name == name:
-        return some(c)
-    none(CliCommand)
-
-
-  ## Looks up an option definition by long name within `defs`.
-  proc findOptionDef(defs: seq[CliOption]; name: string): Option[CliOption] =
-    for o in defs:
-      if o.name == name:
-        return some(o)
-    none(CliOption)
-
-
   ## Looks up an option definition by short alias within `defs`.
   proc findOptionDefByShort(defs: seq[CliOption]; shortName: char): Option[CliOption] =
     for o in defs:
@@ -61,11 +45,12 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
         optVal = tok[eq + 1 .. ^1]
       else:
         optName = tok[2 .. ^1]
-        let def = findOptionDef(defs, optName)
-        if def.isNone:
-          if lenientUnknown:
-            return (cliLineLenientStop, none(string))
-          return (cliLineErr, some("Unknown option: --" & optName))
+      let def = findOptionByName(defs, optName)
+      if def.isNone:
+        if lenientUnknown:
+          return (cliLineLenientStop, none(string))
+        return (cliLineErr, some("Unknown option: --" & optName))
+      if eq < 0:
         if def.get.kind == cliValueNone:
           optVal = "1"
         else:
@@ -73,11 +58,6 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
           if i >= argv.len:
             return (cliLineErr, some("Missing value for option: --" & optName))
           optVal = argv[i]
-      let def2 = findOptionDef(defs, optName)
-      if def2.isNone:
-        if lenientUnknown:
-          return (cliLineLenientStop, none(string))
-        return (cliLineErr, some("Unknown option: --" & optName))
       opts[optName] = optVal
       inc i
       (cliLineOk, none(string))
@@ -143,13 +123,13 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
 
 
   ## Builds a parse result that requests help for path `p`.
-  proc helpResult(p: seq[string]): CliParseResult =
-    CliParseResult(kind: cliParseHelp, helpPath: p)
+  proc helpResult(p: seq[string]; explicit: bool): CliParseResult =
+    CliParseResult(kind: cliParseHelp, helpExplicit: explicit, helpPath: p)
 
 
   ## Builds a parse result carrying a user-facing error message.
   proc errorResult(m: string): CliParseResult =
-    CliParseResult(kind: cliParseError, msg: m)
+    CliParseResult(kind: cliParseError, msg: m, errorHelpPath: path)
 
 
   ## Builds a successful parse result with path, options, and positional args.
@@ -163,15 +143,31 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
     for p in node.arguments:
       if not p.isPositional:
         continue
-      if p.isRepeated:
+      if p.argMax == 1:
+        if p.argMin >= 1:
+          if i >= argv.len:
+            return errorResult("Missing positional argument: " & p.name)
+          args.add argv[i]
+          inc i
+        elif i < argv.len:
+          args.add argv[i]
+          inc i
+        continue
+      var count = 0
+      if p.argMax == 0:
         while i < argv.len:
           args.add argv[i]
           inc i
-        break
-      if i >= argv.len:
-        return errorResult("Missing positional argument: " & p.name)
-      args.add argv[i]
-      inc i
+          inc count
+      else:
+        while count < p.argMax and i < argv.len:
+          args.add argv[i]
+          inc i
+          inc count
+      if count < p.argMin:
+        return errorResult(
+          "Expected at least " & $p.argMin & " argument(s) for " & p.name & ", got " & $count,
+        )
     if i < argv.len:
       return errorResult("Unexpected extra arguments")
     okResult(path, opts, args)
@@ -183,7 +179,7 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
   if rootReport.err.isSome:
     return errorResult(rootReport.err.get)
   if i < argv.len and isHelpTok(argv[i]):
-    return helpResult(@[])
+    return helpResult(@[], true)
 
   var cmdName: string
   var node: CliCommand
@@ -197,7 +193,7 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
         return errorResult("Unknown command: " & cmdName)
       node = picked.get
     else:
-      return helpResult(@[])
+      return helpResult(@[], false)
   else:
     let peek = argv[i]
     let childPick = findChild(schema.commands, peek)
@@ -228,11 +224,11 @@ proc cliParse*(schema: CliSchema; argv: seq[string]): CliParseResult =
     if orep.err.isSome:
       return errorResult(orep.err.get)
     if i < argv.len and isHelpTok(argv[i]):
-      return helpResult(path)
+      return helpResult(path, true)
 
     if i >= argv.len:
       if node.commands.len > 0:
-        return helpResult(path)
+        return helpResult(path, false)
       return finishLeaf(node)
 
     let tok = argv[i]

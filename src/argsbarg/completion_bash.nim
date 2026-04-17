@@ -1,94 +1,6 @@
 import std/[algorithm, strutils, tables]
+import completion_shared
 import schema
-
-## One completion scope: command path, flags, children, and whether file completion applies.
-type ScopeRec = object
-  kids: seq[CliCommand]
-  opts: seq[CliOption]
-  path: string
-  wantsFiles: bool
-
-
-## Returns whether `cmd` declares any positional arguments.
-proc hasPositionalArguments(cmd: CliCommand): bool =
-  for a in cmd.arguments:
-    if a.isPositional:
-      return true
-  false
-
-
-## Maps an application name to a shell-safe identifier token for generated functions.
-proc identToken(s: string): string =
-  for ch in s:
-    result.add(if ch.isAlphaNumeric: ch else: '_')
-
-
-## Flattens the schema into a breadth-first list of completion scopes.
-proc collectScopes(schema: CliSchema): seq[ScopeRec] =
-  var acc: seq[ScopeRec] = @[]
-  acc.add ScopeRec(
-    kids: schema.commands,
-    opts: schema.options,
-    path: "",
-    wantsFiles: false,
-  )
-
-  ## Appends scopes for `cmd` and recursively descends into its subcommands.
-  proc walk(cmdPath: string; cmd: CliCommand) =
-    acc.add ScopeRec(
-      kids: cmd.commands,
-      opts: cmd.options,
-      path: cmdPath,
-      wantsFiles: hasPositionalArguments(cmd),
-    )
-    for ch in cmd.commands:
-      let nextPath =
-        if cmdPath.len == 0:
-          ch.name
-        else:
-          cmdPath & "/" & ch.name
-      walk(nextPath, ch)
-
-  for c in schema.commands:
-    walk(c.name, c)
-  result = acc
-
-
-## Escapes a value for safe embedding inside single-quoted bash words.
-proc escBash(s: string): string =
-  result = s.replace("'", "'\\''")
-  result = result.replace("\n", " ")
-
-
-## Emits the `_nac_consume_long` helper that classifies `--flag` argv tokens per scope.
-proc emitConsumeLong(ident: string; scopes: seq[ScopeRec]): string =
-  var lines: seq[string] = @[]
-  lines.add "_" & ident & "_nac_consume_long() {"
-  lines.add "  local sid=\"$1\" w=\"$2\" nw=\"$3\""
-  lines.add "  case $sid in"
-  for i, sc in scopes:
-    lines.add "    " & $i & ")"
-    lines.add "      case $w in"
-    lines.add "        " & CliHelpLongFlag & "|" & CliHelpLongFlag &
-      "=*|" & CliHelpShortFlag & ") echo 1 ;;"
-    for o in sc.opts:
-      if o.isPositional:
-        continue
-      let base = "--" & o.name
-      case o.kind
-      of cliValueNone:
-        lines.add "        " & base & "|" & base & "=*) echo 1 ;;"
-      of cliValueNumber, cliValueString:
-        lines.add "        " & base & "=*) echo 1 ;;"
-        lines.add "        " & base & ") echo 2 ;;"
-    lines.add "        *) echo 0 ;;"
-    lines.add "      esac"
-    lines.add "      ;;"
-  lines.add "    *) echo 0 ;;"
-  lines.add "  esac"
-  lines.add "}"
-  result = lines.join("\n") & "\n"
-
 
 ## Emits `_nac_consume_short` which classifies short option argv tokens per scope.
 proc emitConsumeShort(ident: string; scopes: seq[ScopeRec]): string =
@@ -141,14 +53,14 @@ proc emitMainBody(schema: CliSchema; ident: string; scopes: seq[ScopeRec]): stri
     var sortedKids = sc.kids
     sortedKids.sort(proc(a, b: CliCommand): int = cmp(a.name, b.name))
     for c in sortedKids:
-      cmdParts.add "'" & escBash(c.name) & "'"
+      cmdParts.add "'" & escShellSingleQuoted(c.name) & "'"
     if cmdParts.len == 0:
       lines.add "  local -a _" & ident & "_cmds_" & $i & "=()"
     else:
       lines.add "  local -a _" & ident & "_cmds_" & $i & "=(" & cmdParts.join(" ") & ")"
     var optParts: seq[string] = @[]
-    optParts.add "'" & escBash(CliHelpLongFlag) & "'"
-    optParts.add "'" & escBash(CliHelpShortFlag) & "'"
+    optParts.add "'" & escShellSingleQuoted(CliHelpLongFlag) & "'"
+    optParts.add "'" & escShellSingleQuoted(CliHelpShortFlag) & "'"
     var sortedOpts = sc.opts
     sortedOpts.sort(proc(a, b: CliOption): int = cmp(a.name, b.name))
     for o in sortedOpts:
@@ -156,11 +68,11 @@ proc emitMainBody(schema: CliSchema; ident: string; scopes: seq[ScopeRec]): stri
         continue
       case o.kind
       of cliValueNone:
-        optParts.add "'" & escBash("--" & o.name) & "'"
+        optParts.add "'" & escShellSingleQuoted("--" & o.name) & "'"
       of cliValueNumber, cliValueString:
-        optParts.add "'" & escBash("--" & o.name & "=") & "'"
+        optParts.add "'" & escShellSingleQuoted("--" & o.name & "=") & "'"
       if o.shortName != CliNoShortName:
-        optParts.add "'" & escBash("-" & $o.shortName) & "'"
+        optParts.add "'" & escShellSingleQuoted("-" & $o.shortName) & "'"
     lines.add "  local -a _" & ident & "_opts_" & $i & "=(" & optParts.join(" ") & ")"
     lines.add "  local _" & ident & "_leaf_" & $i & "=" & (if sc.kids.len == 0: "1" else: "0")
     lines.add "  local _" & ident & "_pos_" & $i & "=" & (if sc.wantsFiles: "1" else: "0")
@@ -264,6 +176,21 @@ proc completionBashBuiltinCommand*(): CliCommand =
     CliBuiltinCompletionBashName,
     "Generate the autocompletion script for bash.",
     noop,
+    notes =
+      "Writes the completion script to stdout. Two ways to activate it:\n" &
+      "\n" &
+      "Save and source (persistent, recommended):\n" &
+      "  {app} completion bash > ~/.bash_completions/{app}\n" &
+      "  bash -n ~/.bash_completions/{app}\n" &
+      "  echo 'source ~/.bash_completions/{app}' >> ~/.bashrc\n" &
+      "  source ~/.bashrc\n" &
+      "\n" &
+      "Process substitution (re-reads the script every new shell):\n" &
+      "  echo 'source <({app} completion bash)' >> ~/.bashrc\n" &
+      "  source ~/.bashrc\n" &
+      "\n" &
+      "If you use the bash-completion package, you can install to:\n" &
+      "  ~/.local/share/bash-completion/completions/{app}",
   )
 
 

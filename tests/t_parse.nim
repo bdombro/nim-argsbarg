@@ -53,7 +53,19 @@ suite "cliParse":
     let m = cliMergeBuiltins(s)
     let pr = cliParse(m, @[])
     check pr.kind == cliParseHelp
+    check pr.helpExplicit == false
     check pr.helpPath.len == 0
+
+  test "explicit -h sets helpExplicit true":
+    let m = cliMergeBuiltins(makeLeafSchema())
+    let prRoot = cliParse(m, @["-h"])
+    check prRoot.kind == cliParseHelp
+    check prRoot.helpExplicit == true
+    check prRoot.helpPath.len == 0
+    let prCmd = cliParse(m, @["run", "-h"])
+    check prCmd.kind == cliParseHelp
+    check prCmd.helpExplicit == true
+    check prCmd.helpPath == @["run"]
 
   test "fallbackCommand selects without consuming argv":
     let s = CliSchema(
@@ -106,7 +118,7 @@ suite "cliParse":
           "Run the app.",
           proc(ctx: CliContext) {.nimcall.} = discard,
           arguments = @[
-            cliOptPositional("path", "Input path."),
+            cliArg("path", "Input path."),
           ],
         ),
         cliLeaf(
@@ -200,7 +212,7 @@ suite "cliParse":
           "Run the app.",
           proc(ctx: CliContext) {.nimcall.} = discard,
           arguments = @[
-            cliOptPositional("path", "Input path."),
+            cliArg("path", "Input path."),
           ],
         ),
       ],
@@ -226,7 +238,7 @@ suite "cliParse":
           "Read a file.",
           proc(ctx: CliContext) {.nimcall.} = discard,
           arguments = @[
-            cliOptPositional("path", "Path."),
+            cliArg("path", "Path."),
           ],
         ),
         cliLeaf(
@@ -244,6 +256,7 @@ suite "cliParse":
     let m = cliMergeBuiltins(s)
     let pr = cliParse(m, @[])
     check pr.kind == cliParseHelp
+    check pr.helpExplicit == false
     check pr.helpPath.len == 0
 
   test "cliFallbackWhenUnknown routes unknown top-level token to fallback command":
@@ -254,7 +267,7 @@ suite "cliParse":
           "Read a file.",
           proc(ctx: CliContext) {.nimcall.} = discard,
           arguments = @[
-            cliOptPositional("path", "Path."),
+            cliArg("path", "Path."),
           ],
         ),
         cliLeaf(
@@ -410,3 +423,141 @@ suite "cliParse":
     check quietLineIndex + 1 < lines.len
     check stripAnsi(lines[quietLineIndex + 1]).startsWith("│ ")
     check lines[quietLineIndex + 1].contains("wrap inside the options box")
+
+  test "cliArg optional accepts zero or one word":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "greet",
+          "Greet.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArg("name", "Name.", optional = true)],
+        ),
+      ],
+      description: "Test app.",
+      name: "tappOptArg",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let pr0 = cliParse(m, @["greet"])
+    check pr0.kind == cliParseOk
+    check pr0.args.len == 0
+    let pr1 = cliParse(m, @["greet", "Ada"])
+    check pr1.kind == cliParseOk
+    check pr1.args == @["Ada"]
+    check cliParse(m, @["greet", "Ada", "Bob"]).kind == cliParseError
+
+  test "cliArgList min=1 rejects empty tail":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArgList("files", "Files.", min = 1)],
+        ),
+      ],
+      description: "Test app.",
+      name: "tappArgListMin",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    check cliParse(m, @["run"]).kind == cliParseError
+    check cliParse(m, @["run", "a"]).kind == cliParseOk
+    check cliParse(m, @["run", "a"]).args == @["a"]
+
+  test "cliArgList max=2 rejects a third word":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArgList("files", "Files.", min = 0, max = 2)],
+        ),
+      ],
+      description: "Test app.",
+      name: "tappArgListMax",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let prEmpty = cliParse(m, @["run"])
+    check prEmpty.kind == cliParseOk
+    check prEmpty.args.len == 0
+    check cliParse(m, @["run", "a", "b"]).kind == cliParseOk
+    check cliParse(m, @["run", "a", "b"]).args == @["a", "b"]
+    let prExtra = cliParse(m, @["run", "a", "b", "c"])
+    check prExtra.kind == cliParseError
+    check prExtra.errorHelpPath == @["run"]
+
+  test "parse errors set errorHelpPath for cliHelpRender":
+    let mRoot = cliMergeBuiltins(makeLeafSchema())
+    let errRoot = cliParse(mRoot, @["--not-defined"])
+    check errRoot.kind == cliParseError
+    check errRoot.errorHelpPath.len == 0
+
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "greet",
+          "Greet.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArg("name", "Name.", optional = true)],
+        ),
+        cliLeaf(
+          "run",
+          "Run.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArgList("files", "Files.", min = 1)],
+        ),
+      ],
+      description: "T.",
+      name: "tappHelpPath",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let errGreet = cliParse(m, @["greet", "a", "b"])
+    check errGreet.kind == cliParseError
+    check errGreet.errorHelpPath == @["greet"]
+
+    let errRun = cliParse(m, @["run"])
+    check errRun.kind == cliParseError
+    check errRun.errorHelpPath == @["run"]
+
+  test "cliValidate errors preserve errorHelpPath":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "run",
+          "Run.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          options = @[cliOptNumber("count", "How many.", 'n')],
+        ),
+      ],
+      description: "T.",
+      name: "tappValHelpPath",
+      options: @[],
+    )
+    let m = cliMergeBuiltins(s)
+    let pr = cliParse(m, @["run", "--count=not-a-number"])
+    check pr.kind == cliParseOk
+    let pr2 = cliValidate(m, pr)
+    check pr2.kind == cliParseError
+    check pr2.errorHelpPath == @["run"]
+
+  test "help positional label shows optional brackets":
+    let s = CliSchema(
+      commands: @[
+        cliLeaf(
+          "x",
+          "X.",
+          proc(ctx: CliContext) {.nimcall.} = discard,
+          arguments = @[cliArg("n", "N.", optional = true)],
+        ),
+      ],
+      description: "D.",
+      name: "tappHelpPos",
+      options: @[],
+    )
+    let clean = stripAnsi(cliHelpRender(cliMergeBuiltins(s), @["x"]))
+    check clean.contains("[n]")

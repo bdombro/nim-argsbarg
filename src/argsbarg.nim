@@ -7,7 +7,7 @@ export errors.ArgsbargSchemaDefect
 export help.cliHelpRender
 
 ## Re-exports `cliMergeBuiltins` and `cliRun` from the dispatch module.
-export dispatch.cliMergeBuiltins, dispatch.cliRun
+export dispatch.cliErrWithHelp, dispatch.cliMergeBuiltins, dispatch.cliRun
 
 ## Re-exports argv parsing entry point.
 export parse.cliParse
