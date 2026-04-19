@@ -16,7 +16,8 @@ from.
 3. **CHANGELOG** — Strip any existing GitHub reference-link footer, move everything under
    ``## [Unreleased]`` into a new ``## [new_version] - YYYY-MM-DD`` section, reset ``[Unreleased]``
    to empty, then append a fresh reference-link block: compare link for ``[Unreleased]`` against
-   the newest released semver heading, and per-version release tag links.
+   the newest released semver heading, and per-version release tag links. Fails if ``[Unreleased]``
+   is empty so the GitHub release notes are never blank.
 
 4. **Quality gate** — Run ``just release-check`` (build, tests, shell syntax on generated
    completion scripts).
@@ -112,12 +113,13 @@ def changelog_release(new_ver: str) -> None:
     body = text[start : start + nxt.start()]
     rest = text[start + nxt.start() :]
     preamble = text[: ur.start()]
+    if not body.strip():
+        raise SystemExit(
+            "error: ## [Unreleased] has no release notes. Add bullets under ### Added / ### Changed "
+            "(etc.) before running the release script."
+        )
     today = date.today().isoformat()
-    version_block = f"## [{new_ver}] - {today}\n"
-    if body.strip():
-        version_block += body
-    else:
-        version_block += "\n"
+    version_block = f"## [{new_ver}] - {today}\n" + body
     merged = preamble + "## [Unreleased]\n\n" + version_block + rest
     merged = strip_ref_footer(merged).rstrip() + "\n"
     vers = re.findall(r"^## \[(\d+\.\d+\.\d+)\]", merged, re.M)

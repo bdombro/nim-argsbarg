@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0] - 2026-04-19
 
+### Changed
+
+- Zsh: contextual help for `completion zsh` documents loading the script with
+  `eval "$(<app> completion zsh)"` in `~/.zshrc` (after `compinit`) as an alternative to the `fpath`
+  file layout.
+
 ## [2.0.1] - 2026-04-19
 ### Added
 
