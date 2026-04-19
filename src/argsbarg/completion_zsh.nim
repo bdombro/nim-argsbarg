@@ -199,7 +199,10 @@ proc completionZshBuiltinLeaf*(): CliCommand =
       "  # In ~/.zshrc, before compinit:\n" &
       "  #   fpath=(~/.zsh/completions $fpath)\n" &
       "  #   autoload -Uz compinit && compinit\n" &
-      "  exec zsh\n",
+      "  exec zsh\n" &
+      "\n" &
+      "Or load inline in ~/.zshrc (no fpath file; run after compinit):\n" &
+      "  eval \"$({app} completion zsh)\"\n",
   )
 
 
