@@ -7,3 +7,5 @@
 /tests/t_completion
 
 childs
+
+__pycache__/

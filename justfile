@@ -64,66 +64,10 @@ release-check: build test
     ./examples/nim_minimal completion bash > /tmp/argsbarg_release_minimal.bash
     bash -n /tmp/argsbarg_release_minimal.bash
 
-# Bump SemVer in argsbarg.nimble, release-check, commit, tag vX.Y.Z, push. Arg: major | minor | patch.
+# Publish a new release
 release bump:
     #!/usr/bin/env bash
     set -euo pipefail
-    bump="{{bump}}"
-    case "$bump" in
-      major|minor|patch) ;;
-      *)
-        echo "error: bump must be major, minor, or patch (got: ${bump})" >&2
-        echo "usage: just release major|minor|patch" >&2
-        exit 1
-        ;;
-    esac
-    export BUMP_KIND="$bump"
     root="$(git rev-parse --show-toplevel)"
     cd "$root"
-    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-      echo "error: tracked files have uncommitted changes; commit or stash first." >&2
-      exit 1
-    fi
-    new_ver="$(python3 - <<'PY'
-    import os
-    import re
-    from pathlib import Path
-    path = Path("argsbarg.nimble")
-    text = path.read_text()
-    m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', text, re.M)
-    if not m:
-        raise SystemExit("error: could not parse version from argsbarg.nimble")
-    major, minor, patch = map(int, m.groups())
-    kind = os.environ["BUMP_KIND"]
-    if kind == "major":
-        new_ver = f"{major + 1}.0.0"
-    elif kind == "minor":
-        new_ver = f"{major}.{minor + 1}.0"
-    elif kind == "patch":
-        new_ver = f"{major}.{minor}.{patch + 1}"
-    else:
-        raise SystemExit(f"error: invalid BUMP_KIND {kind!r}")
-    path.write_text(
-        re.sub(
-            r'^version = "\d+\.\d+\.\d+"',
-            f'version = "{new_ver}"',
-            text,
-            count=1,
-            flags=re.M,
-        )
-    )
-    print(new_ver)
-    PY
-    )"
-    just release-check
-    git add argsbarg.nimble
-    git commit -m "Bump version to ${new_ver}."
-    git tag -a "v${new_ver}" -m "Release v${new_ver}."
-    git push origin HEAD
-    git push origin "refs/tags/v${new_ver}"
-    
-    echo "Clearing local caches (to ensure local apps pick up the new version)"
-    rm -rf ~/.nimble/pkgs2/argsbarg-* 2>/dev/null
-    rm -rf ~/.nimble/pkgcache/githubcom_bdombronimargsbarg* 2>/dev/null
-    rm -rf ~/.cache/gor ~/.cache/nimr 2>/dev/null
-    rm -rf ~/.cache/gor ~/.cache/shebangsy 2>/dev/null
+    exec python3 scripts/release.py "{{bump}}"

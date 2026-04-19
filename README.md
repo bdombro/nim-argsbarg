@@ -367,7 +367,11 @@ just test           # run tests/
 just smoke-file     # focused CLI checks for nim_file
 just smoke-minimal  # focused checks for nim_minimal
 just release-check  # full build + tests + completion syntax check
+just release patch    # SemVer bump, CHANGELOG, release-check, git tag/push, gh release (see scripts/release.py)
 ```
+
+`just release` needs `gh` (GitHub CLI) installed and `gh auth login` so the script can open a GitHub
+Release whose body is the new version section in `CHANGELOG.md`.
 
 To compile examples directly against the working tree:
 
