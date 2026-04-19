@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-19
 ### Added
 
 - README: header image ([`logo.png`](logo.png)) and shields.io badges for the [GitHub
@@ -47,5 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `cliOptPositional` — use `cliArg` / `cliArgList` instead.
 
-[Unreleased]: https://github.com/bdombro/nim-argsbarg/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/bdombro/nim-argsbarg/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/bdombro/nim-argsbarg/releases/tag/v2.0.1
 [2.0.0]: https://github.com/bdombro/nim-argsbarg/releases/tag/v2.0.0
