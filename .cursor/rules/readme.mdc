@@ -2,10 +2,8 @@
 description: README tone—concise, human-readable, senior-engineer audience
 globs:
   - "README.md"
-alwaysApply: true
+alwaysApply: false
 ---
-
-# README and project Markdown
 
 **Audience:** senior engineers (CLI, builds, VCS, reading code—skip hand-holding).
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- README: header image ([`logo.png`](logo.png)) and shields.io badges for the [GitHub
+  repository](https://github.com/bdombro/nim-argsbarg), MIT license, Nim ≥ 2.0, and Unix (POSIX)
+  targets.
+
 ## [2.0.0]
 
 ### Added

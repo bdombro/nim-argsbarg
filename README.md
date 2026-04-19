@@ -1,4 +1,13 @@
+![Logo](logo.png)
+<!-- Big money NE - https://patorjk.com/software/taag/#p=testall&f=Bulbhead&t=shebangsy&x=none&v=4&h=4&w=80&we=false> -->
+
 # argsbarg
+
+[![GitHub](https://img.shields.io/badge/GitHub-bdombro%2Fnim--argsbarg-181717?logo=github)](https://github.com/bdombro/nim-argsbarg)
+
+[![License](https://img.shields.io/github/license/bdombro/nim-argsbarg)](LICENSE)
+[![Nim](https://img.shields.io/badge/nim-%E2%89%A52.0.0-yellow?logo=nim)](https://nim-lang.org/)
+[![Platform](https://img.shields.io/badge/platform-Unix%20(POSIX)-lightgrey)](#)
 
 Describe your CLI as plain Nim objects. `argsbarg` handles parsing, validation, scoped help,
 ANSI styling, and shell tab completion.

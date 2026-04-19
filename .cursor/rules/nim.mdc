@@ -1,14 +1,14 @@
 ---
 description: >-
-  Nim coding standards (module layout, naming, CLI, tooling). Applies to repo-root *.nim only;
-  examples/ uses examples.mdc. Add more globs here if you add Nim outside examples/ and the root.
+  Nim coding standards
 globs:
   - "*.nim"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Nim code standards
 
+- Must have top comment with goal, why, high-level how
 - **Multi-word identifiers:** order general → specific (head-first: main concept, then qualifier); typically topic → optional subtype/format → measured attribute → limit/qualifier (e.g. `statStatusOk`, not `okStatStatus`).
 - **Field names:** minimal tokens within the owning type; no repeated type/module/domain prefixes unless required for disambiguation.
 - **Module-scope (top-level) declarations** (except imports) must:
@@ -26,5 +26,4 @@ alwaysApply: true
 - **Parameter shape:** if a proc takes more than four primitive or config parameters, prefer an options object; if the same cluster of values passes through multiple layers, define a named type for it.
 - **Branching:** materially different pipelines → separate helpers, not interleaved; repeated status literals and sentinels → centralized constants (or enums when suitable).
 - Assume Unix arch and POSIX features are available.
-- Use **grab** for external library imports.
 - Line max-width **100** characters unless the line is a code block or a URL.
