@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repository](https://github.com/bdombro/nim-argsbarg), MIT license, Nim ≥ 2.0, and Unix (POSIX)
   targets.
 
+### Changed
+
+- **Zsh completions:** `completion zsh` is documented and supported as **stdout-only** (same as
+  bash). Removed the unused ``CliPrintLongFlag`` (``--print``) constant and README wording that
+  implied a default install path or a separate print mode.
+
 ## [2.0.0]
 
 ### Added

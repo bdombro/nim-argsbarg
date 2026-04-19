@@ -18,9 +18,6 @@ const CliHelpShortFlag* = "-h"
 ## Marker for options that do not declare a short alias.
 const CliNoShortName* = '\0'
 
-## Long flag for printing the zsh completion script to stdout instead of installing it.
-const CliPrintLongFlag* = "--print"
-
 ## Supported option value kinds for schema validation and help rendering.
 type CliValueKind* = enum
   cliValueNone

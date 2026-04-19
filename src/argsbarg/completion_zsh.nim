@@ -192,18 +192,13 @@ proc completionZshBuiltinLeaf*(): CliCommand =
     "Generate the autocompletion script for zsh.",
     noop,
     notes =
-      "Writes the completion script to stdout. Two ways to activate it:\n" &
+      "Prints the completion script to stdout. Typical fpath install:\n" &
       "\n" &
-      "fpath install (persistent, recommended):\n" &
       "  {app} completion zsh > ~/.zsh/completions/_{app}\n" &
       "  # In ~/.zshrc, before compinit:\n" &
       "  #   fpath=(~/.zsh/completions $fpath)\n" &
       "  #   autoload -Uz compinit && compinit\n" &
-      "  exec zsh\n" &
-      "\n" &
-      "eval (reloads on every shell start):\n" &
-      "  echo 'eval \"$({app} completion zsh)\"' >> ~/.zshrc\n" &
-      "  source ~/.zshrc",
+      "  exec zsh\n",
   )
 
 

@@ -12,8 +12,6 @@
 Describe your CLI as plain Nim objects. `argsbarg` handles parsing, validation, scoped help,
 ANSI styling, and shell tab completion.
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
-
 Halps! -->
 ![help-preview.png](docs/help-preview.png)
 
@@ -198,7 +196,7 @@ nim c -p:src examples/nim_minimal.nim
 ./examples/nim_minimal hello -n world
 ./examples/nim_minimal --name world
 ./examples/nim_minimal -h
-./examples/nim_minimal completion zsh --print
+./examples/nim_minimal completion zsh
 ```
 
 ### `examples/nim_file.nim`
@@ -216,7 +214,7 @@ nim c -p:src examples/nim_file.nim
 ./examples/nim_file rm a.txt b.txt
 ./examples/nim_file read ./README.md
 ./examples/nim_file write ./out.txt --content hello
-./examples/nim_file completion zsh --print
+./examples/nim_file completion zsh
 ```
 
 
@@ -348,9 +346,9 @@ Validation rules: `argMin <= argMax` when `argMax > 0`; only the last positional
 
 ## Shell completions
 
-**Zsh:** `<app> completion zsh` installs to `~/.zsh/completions/_{appname}`. Pass `--print`
-to write to stdout instead. If the completions directory doesn't exist, you'll get `fpath`
-setup instructions.
+**Zsh:** `<app> completion zsh` writes the script to **stdout** (same as bash). Redirect to
+`~/.zsh/completions/_{appname}` and add that directory to `fpath` before `compinit` if you use the
+`fpath` layout.
 
 **Bash:** `<app> completion bash` writes to stdout; save to a file and `source` it from
 `~/.bashrc` or drop it under `bash_completion.d`. `bash -n` on the output should pass cleanly.
