@@ -9,8 +9,9 @@
 [![Nim](https://img.shields.io/badge/nim-%E2%89%A52.0.0-yellow?logo=nim)](https://nim-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Unix%20(POSIX)-lightgrey)](#)
 
-Describe your CLI as plain Nim objects. `argsbarg` handles parsing, validation, scoped help,
-ANSI styling, and shell tab completion.
+Build beautiful, well-behaved CLI apps in Nim — no third-party runtime dependencies, just add the ArgsBarg package.
+
+Describe your CLI as plain Nim objects. `argsbarg` handles parsing, validation, scoped help, ANSI styling, and shell tab completion.
 
 **ArgsBarg** is *schema-first* -- define your entire CLI’s structure, commands, options, and help in a single, explicit data model, making the command-line interface centralized, clear and self-describing upfront. `nim-argsbarg` has siblings --> [cpp](https://github.com/bdombro/cpp-argsbarg), and [swift](https://github.com/bdombro/swift-argsbarg).
 
