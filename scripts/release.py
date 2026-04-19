@@ -7,8 +7,8 @@ from.
 
 **Steps (in order)**
 
-1. **Preconditions** — Require a clean Git working tree (no unstaged/staged changes to tracked
-   files). Uncommitted work must be committed or stashed first.
+1. **Preconditions** — If the working tree has uncommitted changes, run ``git add -A`` and
+   ``git commit`` with a snapshot message so the release starts from a clean tip.
 
 2. **SemVer bump** — Read ``argsbarg.nimble``, apply ``major`` / ``minor`` / ``patch`` to the
    current ``version = "X.Y.Z"`` line, and write the file.
@@ -156,10 +156,10 @@ def clear_caches() -> None:
             shutil.rmtree(d, ignore_errors=True)
 
 
-def git_require_clean() -> None:
-    """Exits the process if tracked files have uncommitted changes."""
+def git_commit_pending_if_any() -> None:
+    """Stages and commits any pending changes so the release runs from a clean working tree."""
     r = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=no"],
+        ["git", "status", "--porcelain"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -167,12 +167,18 @@ def git_require_clean() -> None:
     )
     if r.returncode != 0:
         raise SystemExit("error: git status failed")
-    if r.stdout.strip():
-        print(
-            "error: tracked files have uncommitted changes; commit or stash first.",
-            file=sys.stderr,
-        )
-        raise SystemExit(1)
+    if not r.stdout.strip():
+        return
+    print(
+        "Working tree has uncommitted changes; git add -A and committing snapshot.",
+        file=sys.stderr,
+    )
+    subprocess.run(["git", "add", "-A"], cwd=REPO_ROOT, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "chore: snapshot before release"],
+        cwd=REPO_ROOT,
+        check=True,
+    )
 
 
 def publish_github_release(new_ver: str) -> None:
@@ -250,7 +256,7 @@ def main() -> None:
         raise SystemExit(2)
 
     os.chdir(REPO_ROOT)
-    git_require_clean()
+    git_commit_pending_if_any()
     new_ver = bump_nimble_version(kind)
     changelog_release(new_ver)
     run_release_check()

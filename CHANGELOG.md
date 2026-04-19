@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Zsh completions:** `completion zsh` is documented and supported as **stdout-only** (same as
-  bash). Removed the unused ``CliPrintLongFlag`` (``--print``) constant and README wording that
-  implied a default install path or a separate print mode.
+- **Shell completions:** `completion bash` and `completion zsh` emit the script on **stdout** only;
+  the CLI never writes completion files. Documented in README and builtin help; removed the unused
+  ``CliPrintLongFlag`` (``--print``) and wording that implied a default install path or a separate
+  print mode.
 
 ## [2.0.0]
 

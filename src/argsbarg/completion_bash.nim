@@ -177,7 +177,8 @@ proc completionBashBuiltinCommand*(): CliCommand =
     "Generate the autocompletion script for bash.",
     noop,
     notes =
-      "Writes the completion script to stdout. Two ways to activate it:\n" &
+      "Prints the completion script to stdout only (no automatic file write). Two ways to " &
+      "activate it:\n" &
       "\n" &
       "Save and source (persistent, recommended):\n" &
       "  {app} completion bash > ~/.bash_completions/{app}\n" &

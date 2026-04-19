@@ -192,7 +192,8 @@ proc completionZshBuiltinLeaf*(): CliCommand =
     "Generate the autocompletion script for zsh.",
     noop,
     notes =
-      "Prints the completion script to stdout. Typical fpath install:\n" &
+      "Prints the completion script to stdout only (no automatic file write). Typical fpath " &
+      "install:\n" &
       "\n" &
       "  {app} completion zsh > ~/.zsh/completions/_{app}\n" &
       "  # In ~/.zshrc, before compinit:\n" &

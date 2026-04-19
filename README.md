@@ -346,12 +346,13 @@ Validation rules: `argMin <= argMax` when `argMax > 0`; only the last positional
 
 ## Shell completions
 
-**Zsh:** `<app> completion zsh` writes the script to **stdout** (same as bash). Redirect to
-`~/.zsh/completions/_{appname}` and add that directory to `fpath` before `compinit` if you use the
-`fpath` layout.
+**Zsh:** `<app> completion zsh` **prints** the completion script to stdout only (same as bash).
+Redirect stdout to `~/.zsh/completions/_{appname}` and add that directory to `fpath` before
+`compinit` if you use the `fpath` layout.
 
-**Bash:** `<app> completion bash` writes to stdout; save to a file and `source` it from
-`~/.bashrc` or drop it under `bash_completion.d`. `bash -n` on the output should pass cleanly.
+**Bash:** `<app> completion bash` **prints** the script to stdout only. Redirect to a file and
+`source` it from `~/.bashrc` or drop it under `bash_completion.d`. `bash -n` on the output should pass
+cleanly.
 
 Both generators cover commands, subcommands, long options, and short aliases. Leaf commands
 with positional arguments get file-path completion (`_files` / `compgen -f`).
